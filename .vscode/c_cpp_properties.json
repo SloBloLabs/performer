@@ -56,23 +56,24 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceRoot}",
-                "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include"
+                "${workspaceRoot}"
             ],
             "defines": [
                 "_DEBUG",
-                "UNICODE"
+                "UNICODE",
+                "STM32F4",
+                "STM32F405xx"
             ],
-            "intelliSenseMode": "msvc-x64",
+            "intelliSenseMode": "gcc-x64",
             "browse": {
                 "path": [
-                    "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include/*",
-                    "${workspaceRoot}"
+                    "${workspaceRoot}",
+                    "${workspaceRoot}/src/platform/stm32/libs/libopencm3/include"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
             },
-            "compilerPath": "/usr/bin/clang",
+            "compilerPath": "C:/me/Software/stm32/gnu-mcu-eclipse-arm-none-eabi-gcc-8.2.1-1.2-20190119-1237-win64/bin/arm-none-eabi-gcc.exe",
             "cStandard": "c11",
             "cppStandard": "c++11"
         }
