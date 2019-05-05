@@ -16,5 +16,8 @@
         "MSYSTEM": "MINGW64",
         //"MSYS2_PATH_TYPE": "inherit",
         "MSVSCODE": "1"
+    },
+    "files.associations": {
+        "*.tcc": "cpp"
     }
 }
