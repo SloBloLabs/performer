@@ -7,6 +7,7 @@
 namespace sim {
 
 struct TracePlayerBase {
+    virtual ~TracePlayerBase() = 0;
     virtual void play(uint32_t tick) = 0;
 };
 
@@ -19,6 +20,8 @@ struct TracePlayer : public TracePlayerBase {
         func(func)
     {}
 
+    ~TracePlayer() {}
+
     void play(uint32_t tick) override {
         while (pos < trace.items().size() && trace.items()[pos].first == tick) {
             func(trace.items()[pos].second);
@@ -26,7 +29,7 @@ struct TracePlayer : public TracePlayerBase {
         }
     }
 
-    int pos = 0;
+    size_t pos = 0;
     const T &trace;
     std::function<void(const Record &)> func;
 };
