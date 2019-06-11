@@ -26,7 +26,11 @@ void Arpeggiator::read(ReadContext &context) {
     reader.read(_enabled, Project::Version9);
     reader.read(_hold, Project::Version9);
     reader.read(_mode, Project::Version9);
-    reader.read(_divisor, Project::Version9);
+    if (reader.dataVersion() < Project::Version10) {
+        reader.readAs<uint8_t>(_divisor, Project::Version9);
+    } else {
+        reader.read(_divisor);
+    }
     reader.read(_gateLength, Project::Version9);
     reader.read(_octaves, Project::Version9);
 }

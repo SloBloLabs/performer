@@ -1,5 +1,6 @@
 #include "CurveSequence.h"
 
+#include "Project.h"
 #include "ModelUtils.h"
 
 Types::LayerRange CurveSequence::layerRange(Layer layer) {
@@ -153,7 +154,11 @@ void CurveSequence::write(WriteContext &context) const {
 void CurveSequence::read(ReadContext &context) {
     auto &reader = context.reader;
     reader.read(_range);
-    reader.read(_divisor.base);
+    if (reader.dataVersion() < Project::Version10) {
+        reader.readAs<uint8_t>(_divisor.base);
+    } else {
+        reader.read(_divisor.base);
+    }
     reader.read(_resetMeasure);
     reader.read(_runMode.base);
     reader.read(_firstStep.base);

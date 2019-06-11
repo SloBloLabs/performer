@@ -35,7 +35,7 @@
 // There are two RAM regions on the STM32F405:
 // - 128kB SRAM at 0x20000000
 // - 64kB CCMRAM at 0x10000000
-// CCMRAM (core-coupled-memory) may be faster than SRAM but cannot be used for DMA tranfers!
+// CCMRAM (core-coupled-memory) may be faster than SRAM but cannot be used for DMA transfers!
 // We use CCMRAM for all the drivers not using DMA, all tasks and some of the application objects (engine, ui).
 // This leaves most of the SRAM for the model, which needs a large contiguous block of memory.
 
@@ -53,8 +53,8 @@ struct {
 
 static CCMRAM_BSS ClockTimer clockTimer;
 static CCMRAM_BSS ShiftRegister shiftRegister;
-static CCMRAM_BSS ButtonLedMatrix blm(shiftRegister);
-static CCMRAM_BSS Encoder encoder(HardwareConfig::reversedEncoder());
+static CCMRAM_BSS ButtonLedMatrix blm(shiftRegister, HardwareConfig::invertLeds());
+static CCMRAM_BSS Encoder encoder(HardwareConfig::reverseEncoder());
 static Lcd lcd;
 static Adc adc;
 static CCMRAM_BSS Dac dac;
