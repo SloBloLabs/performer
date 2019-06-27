@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/utils/StringBuilder.h"
+#include "core/math/Math.h"
 
 #include <array>
 
@@ -42,6 +43,27 @@ public:
         case CvGateInput::Cv1Cv2:   return "CV1/CV2";
         case CvGateInput::Cv3Cv4:   return "CV3/CV4";
         case CvGateInput::Last:     break;
+        }
+        return nullptr;
+    }
+
+    enum class CurveCvInput : uint8_t {
+        Off,
+        Cv1,
+        Cv2,
+        Cv3,
+        Cv4,
+        Last
+    };
+
+    static const char *curveCvInput(CurveCvInput curveCvInput) {
+        switch (curveCvInput) {
+        case CurveCvInput::Off:     return "Off";
+        case CurveCvInput::Cv1:     return "CV1";
+        case CurveCvInput::Cv2:     return "CV2";
+        case CurveCvInput::Cv3:     return "CV3";
+        case CurveCvInput::Cv4:     return "CV4";
+        case CurveCvInput::Last:    break;
         }
         return nullptr;
     }
@@ -143,10 +165,18 @@ public:
     struct VoltageRangeInfo {
         float lo;
         float hi;
+
+        float normalize(float value) const {
+            return clamp((value - lo) / (hi - lo), 0.f, 1.f);
+        }
+
+        float denormalize(float value) const {
+            return clamp(value, 0.f, 1.f) * (hi - lo) + lo;
+        }
     };
 
-    static const VoltageRangeInfo *voltageRangeInfo(VoltageRange voltageRange) {
-        return &voltageRangeInfos[int(voltageRange)];
+    static const VoltageRangeInfo &voltageRangeInfo(VoltageRange voltageRange) {
+        return voltageRangeInfos[int(voltageRange)];
     }
 
     // MidiPort
