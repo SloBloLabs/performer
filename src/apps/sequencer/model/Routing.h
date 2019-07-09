@@ -154,6 +154,10 @@ public:
         return target >= Target::SequenceFirst && target <= Target::SequenceLast;
     }
 
+    static bool isPerTrackTarget(Target target) {
+        return isPlayStateTarget(target) || isTrackTarget(target) || isSequenceTarget(target);
+    }
+
     enum class Source : uint8_t {
         None,
         CvIn1,
@@ -243,6 +247,7 @@ public:
             NoteMomentary,
             NoteToggle,
             NoteVelocity,
+            NoteRange,
             Last,
         };
 
@@ -254,6 +259,7 @@ public:
             case Event::NoteMomentary:  return "Note Momentary";
             case Event::NoteToggle:     return "Note Toggle";
             case Event::NoteVelocity:   return "Note Velocity";
+            case Event::NoteRange:      return "Note Range";
             case Event::Last:           break;
             }
             return nullptr;
@@ -283,21 +289,6 @@ public:
             return int(_event) <= int(Event::LastControlEvent);
         }
 
-        // note
-
-        int note() const { return _controlNumberOrNote; }
-        void setNote(int note) {
-            _controlNumberOrNote = clamp(note, 0, 127);
-        }
-
-        void editNote(int value, bool shift) {
-            setNote(note() + value);
-        }
-
-        void printNote(StringBuilder &str) const {
-            Types::printMidiNote(str, note());
-        }
-
         // controlNumber
 
         int controlNumber() const { return _controlNumberOrNote; }
@@ -313,6 +304,36 @@ public:
             str("%d", note());
         }
 
+        // note
+
+        int note() const { return _controlNumberOrNote; }
+        void setNote(int note) {
+            _controlNumberOrNote = clamp(note, 0, 127);
+        }
+
+        void editNote(int value, bool shift) {
+            setNote(note() + value);
+        }
+
+        void printNote(StringBuilder &str) const {
+            Types::printMidiNote(str, note());
+        }
+
+        // noteRange
+
+        int noteRange() const { return _noteRange; }
+        void setNoteRange(int noteRange) {
+            _noteRange = clamp(noteRange, 2, 64);
+        }
+
+        void editNoteRange(int value, bool shift) {
+            setNoteRange(noteRange() + value);
+        }
+
+        void printNoteRange(StringBuilder &str) const {
+            str("%d", noteRange());
+        }
+
         void clear();
 
         void write(WriteContext &context) const;
@@ -324,6 +345,7 @@ public:
         MidiSourceConfig _source;
         Event _event;
         uint8_t _controlNumberOrNote;
+        uint8_t _noteRange;
     };
 
     class Route {
@@ -349,21 +371,24 @@ public:
 
         // tracks
 
-        uint8_t tracks() const { return _tracks; }
+        uint8_t tracks() const { return isPerTrackTarget(_target) ? _tracks : 0; }
         void setTracks(uint8_t tracks) {
-            _tracks = tracks;
+            if (isPerTrackTarget(_target)) {
+                _tracks = tracks;
+            }
         }
 
         void toggleTrack(int trackIndex) {
-            if (tracks() & (1<<trackIndex)) {
-                setTracks(tracks() & ~(1<<trackIndex));
+            uint8_t trackBit = (1<<trackIndex);
+            if (tracks() & trackBit) {
+                setTracks(tracks() & ~trackBit);
             } else {
-                setTracks(tracks() | (1<<trackIndex));
+                setTracks(tracks() | trackBit);
             }
         }
 
         void printTracks(StringBuilder &str) const {
-            if (isPlayStateTarget(_target) || isTrackTarget(_target) || isSequenceTarget(_target)) {
+            if (isPerTrackTarget(_target)) {
                 for (int i = 0; i < CONFIG_TRACK_COUNT; ++i) {
                     str("%c", (_tracks & (1<<i)) ? 'X' : '-');
                 }
@@ -483,6 +508,7 @@ public:
 
     int findEmptyRoute() const;
     int findRoute(Target target, int trackIndex) const;
+    int checkRouteConflict(const Route &editedRoute, const Route &existingRoute) const;
 
     void setRouted(Target target, uint8_t tracks, uint16_t patterns, bool routed);
     void writeTarget(Target target, uint8_t tracks, uint16_t patterns, float normalized);

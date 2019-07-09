@@ -1,6 +1,7 @@
 #include "Routing.h"
 
 #include "Project.h"
+#include "ProjectVersion.h"
 
 #include <cmath>
 
@@ -34,6 +35,7 @@ void Routing::MidiSource::clear() {
     _source.clear();
     _event = Event::ControlAbsolute;
     _controlNumberOrNote = 0;
+    _noteRange = 2;
 }
 
 void Routing::MidiSource::write(WriteContext &context) const {
@@ -41,6 +43,7 @@ void Routing::MidiSource::write(WriteContext &context) const {
     _source.write(context);
     writer.write(_event);
     writer.write(_controlNumberOrNote);
+    writer.write(_noteRange);
 }
 
 void Routing::MidiSource::read(ReadContext &context) {
@@ -48,13 +51,15 @@ void Routing::MidiSource::read(ReadContext &context) {
     _source.read(context);
     reader.read(_event);
     reader.read(_controlNumberOrNote);
+    reader.read(_noteRange, ProjectVersion::Version13);
 }
 
 bool Routing::MidiSource::operator==(const MidiSource &other) const {
     return (
         _source == other._source &&
         _event == other._event &&
-        _controlNumberOrNote == other._controlNumberOrNote
+        _controlNumberOrNote == other._controlNumberOrNote &&
+        (_event != Event::NoteRange || _noteRange == other._noteRange)
     );
 }
 
@@ -148,6 +153,23 @@ int Routing::findRoute(Target target, int trackIndex) const {
             return i;
         }
     }
+    return -1;
+}
+
+int Routing::checkRouteConflict(const Route &editedRoute, const Route &existingRoute) const {
+    for (size_t i = 0; i < _routes.size(); ++i) {
+        const auto &route = _routes[i];
+        if (&route != &existingRoute && route.active() && route.target() == editedRoute.target()) {
+            if (isPerTrackTarget(route.target())) {
+                if ((route.tracks() & editedRoute.tracks()) != 0) {
+                    return i;
+                }
+            } else {
+                return i;
+            }
+        }
+    }
+
     return -1;
 }
 

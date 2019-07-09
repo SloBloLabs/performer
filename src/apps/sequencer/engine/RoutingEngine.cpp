@@ -1,6 +1,7 @@
 #include "RoutingEngine.h"
 
 #include "Engine.h"
+#include "MidiUtils.h"
 
 // for allowing direct mapping
 static_assert(int(MidiPort::Midi) == int(Types::MidiPort::Midi), "invalid mapping");
@@ -23,8 +24,7 @@ bool RoutingEngine::receiveMidi(MidiPort port, const MidiMessage &message) {
         const auto &route = _routing.route(routeIndex);
         if (route.active() &&
             route.source() == Routing::Source::Midi &&
-            route.midiSource().source().port() == Types::MidiPort(port) &&
-            (route.midiSource().source().channel() == 0 || route.midiSource().source().channel() == message.channel() + 1)
+            MidiUtils::matchSource(port, message, route.midiSource().source())
         ) {
             const auto &midiSource = route.midiSource();
             auto &sourceValue = _sourceValues[routeIndex];
@@ -67,6 +67,12 @@ bool RoutingEngine::receiveMidi(MidiPort port, const MidiMessage &message) {
             case Routing::MidiSource::Event::NoteVelocity:
                 if (message.isNoteOn() && message.note() == midiSource.note()) {
                     sourceValue = message.velocity() * (1.f / 127.f);
+                    consumed = true;
+                }
+                break;
+            case Routing::MidiSource::Event::NoteRange:
+                if (message.isNoteOn() && message.note() >= midiSource.note() && message.note() < midiSource.note() + midiSource.noteRange()) {
+                    sourceValue = (message.note() - midiSource.note()) / float(midiSource.noteRange() - 1);
                     consumed = true;
                 }
                 break;
