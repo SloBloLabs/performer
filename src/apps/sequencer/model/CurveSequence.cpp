@@ -70,6 +70,12 @@ void CurveSequence::Step::read(ReadContext &context) {
     reader.read(_shape);
     reader.read(_min);
     reader.read(_max);
+
+    if (reader.dataVersion() < ProjectVersion::Version14) {
+        if (_shape <= 1) {
+            _shape = (_shape + 1) % 2;
+        }
+    }
 }
 
 void CurveSequence::writeRouted(Routing::Target target, int intValue, float floatValue) {
@@ -98,8 +104,6 @@ void CurveSequence::clear() {
     setRunMode(Types::RunMode::Forward);
     setFirstStep(0);
     setLastStep(15);
-
-    _routed.clear();
 
     clearSteps();
 }
