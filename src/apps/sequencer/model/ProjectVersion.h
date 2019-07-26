@@ -36,6 +36,12 @@ enum ProjectVersion {
     // swapped Curve::Type::Low with Curve::Type::High
     Version14 = 14,
 
+    // added MidiCvTrack::lowNote/highNote
+    // changed CurveSequence::Step layout
+    // added CurveTrack::shapeProbabilityBias
+    // added CurveTrack::gateProbabilityBias
+    Version15 = 15,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,
