@@ -251,13 +251,18 @@ public:
 
     // firstStep
 
-    int firstStep() const { return _firstStep.get(isRouted(Routing::Target::FirstStep)); }
+    int firstStep() const {
+        return _firstStep.get(isRouted(Routing::Target::FirstStep));
+    }
+
     void setFirstStep(int firstStep, bool routed = false) {
         _firstStep.set(clamp(firstStep, 0, lastStep()), routed);
     }
 
     void editFirstStep(int value, bool shift) {
-        if (!isRouted(Routing::Target::FirstStep)) {
+        if (shift) {
+            offsetFirstAndLastStep(value);
+        } else if (!isRouted(Routing::Target::FirstStep)) {
             setFirstStep(firstStep() + value);
         }
     }
@@ -269,13 +274,19 @@ public:
 
     // lastStep
 
-    int lastStep() const { return _lastStep.get(isRouted(Routing::Target::LastStep)); }
+    int lastStep() const {
+        // make sure last step is always >= first step even if stored value is invalid (due to routing changes)
+        return std::max(firstStep(), int(_lastStep.get(isRouted(Routing::Target::LastStep))));
+    }
+
     void setLastStep(int lastStep, bool routed = false) {
         _lastStep.set(clamp(lastStep, firstStep(), CONFIG_STEP_COUNT - 1), routed);
     }
 
     void editLastStep(int value, bool shift) {
-        if (!isRouted(Routing::Target::LastStep)) {
+        if (shift) {
+            offsetFirstAndLastStep(value);
+        } else if (!isRouted(Routing::Target::LastStep)) {
             setLastStep(lastStep() + value);
         }
     }
@@ -323,6 +334,17 @@ public:
 
 private:
     void setTrackIndex(int trackIndex) { _trackIndex = trackIndex; }
+
+    void offsetFirstAndLastStep(int value) {
+        value = clamp(value, -firstStep(), CONFIG_STEP_COUNT - 1 - lastStep());
+        if (value > 0) {
+            editLastStep(value, false);
+            editFirstStep(value, false);
+        } else {
+            editFirstStep(value, false);
+            editLastStep(value, false);
+        }
+    }
 
     int8_t _trackIndex = -1;
     Types::VoltageRange _range;
