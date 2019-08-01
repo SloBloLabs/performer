@@ -42,6 +42,12 @@ enum ProjectVersion {
     // added CurveTrack::gateProbabilityBias
     Version15 = 15,
 
+    // added MidiCvTrack::notePriority
+    Version16 = 16,
+
+    // changed Arpeggiator::octaves
+    Version17 = 17,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,
