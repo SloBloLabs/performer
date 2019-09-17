@@ -49,6 +49,12 @@ void CurveTrackEngine::reset() {
     changePattern();
 }
 
+void CurveTrackEngine::restart() {
+    _sequenceState.reset();
+    _currentStep = -1;
+    _currentStepFraction = 0.f;
+}
+
 void CurveTrackEngine::tick(uint32_t tick) {
     ASSERT(_sequence != nullptr, "invalid sequence");
     const auto &sequence = *_sequence;
@@ -67,8 +73,8 @@ void CurveTrackEngine::tick(uint32_t tick) {
         updateOutput(linkData->relativeTick, linkData->divisor);
     } else {
         uint32_t divisor = sequence.divisor() * (CONFIG_PPQN / CONFIG_SEQUENCE_PPQN);
-        uint32_t measureDivisor = (sequence.resetMeasure() * CONFIG_PPQN * 4);
-        uint32_t relativeTick = measureDivisor == 0 ? tick : tick % measureDivisor;
+        uint32_t resetDivisor = sequence.resetMeasure() * _engine.measureDivisor();
+        uint32_t relativeTick = resetDivisor == 0 ? tick : tick % resetDivisor;
 
         // handle reset measure
         if (relativeTick == 0) {
@@ -154,8 +160,8 @@ void CurveTrackEngine::triggerStep(uint32_t tick, uint32_t divisor) {
         if (gate & (1 << i) && evalGate(step, gateProbabilityBias)) {
             uint32_t gateStart = (divisor * i) / 4;
             uint32_t gateLength = divisor / 8;
-            _gateQueue.pushReplace({ applySwing(tick + gateStart), true });
-            _gateQueue.pushReplace({ applySwing(tick + gateStart + gateLength), false });
+            _gateQueue.pushReplace({ Groove::applySwing(tick + gateStart, swing()), true });
+            _gateQueue.pushReplace({ Groove::applySwing(tick + gateStart + gateLength, swing()), false });
         }
     }
 }
@@ -226,8 +232,4 @@ void CurveTrackEngine::updateRecording(uint32_t relativeTick, uint32_t divisor) 
         step.setMinNormalized(match.min);
         step.setMaxNormalized(match.max);
     }
-}
-
-uint32_t CurveTrackEngine::applySwing(uint32_t tick) const {
-    return Groove::swing(tick, CONFIG_PPQN / 4, swing());
 }

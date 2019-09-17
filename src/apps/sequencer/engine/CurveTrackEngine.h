@@ -19,6 +19,7 @@ public:
     virtual Track::TrackMode trackMode() const override { return Track::TrackMode::Curve; }
 
     virtual void reset() override;
+    virtual void restart() override;
     virtual void tick(uint32_t tick) override;
     virtual void update(float dt) override;
 
@@ -47,8 +48,6 @@ private:
     void updateRecordValue();
     void updateRecording(uint32_t relativeTick, uint32_t divisor);
 
-    uint32_t applySwing(uint32_t tick) const;
-
     CurveTrack &_curveTrack;
 
     TrackLinkData _linkData;
@@ -76,7 +75,7 @@ private:
 
     struct GateCompare {
         bool operator()(const Gate &a, const Gate &b) {
-            return a.tick < b.tick;;
+            return a.tick < b.tick;
         }
     };
 

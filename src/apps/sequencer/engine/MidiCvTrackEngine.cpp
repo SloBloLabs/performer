@@ -13,7 +13,11 @@ void MidiCvTrackEngine::reset() {
     _activity = false;
     _pitchBend = 0;
     _channelPressure = 0;
+    _slideActive = false;
     resetVoices();
+}
+
+void MidiCvTrackEngine::restart() {
 }
 
 void MidiCvTrackEngine::tick(uint32_t tick) {
@@ -35,6 +39,16 @@ void MidiCvTrackEngine::update(float dt) {
             ++_arpeggiatorTick;
         }
     }
+
+    // update monophonic portamento
+    if (_midiCvTrack.voices() == 1) {
+        _pitchCvOutputTarget = noteToCv(_voices.front().note + _midiCvTrack.transpose()) + pitchBendToCv(_pitchBend);
+        if (_slideActive && _midiCvTrack.slideTime() > 0) {
+            _pitchCvOutput += (_pitchCvOutputTarget - _pitchCvOutput) * std::min(1.f, dt * (200 - 2 * _midiCvTrack.slideTime()));
+        } else {
+            _pitchCvOutput = _pitchCvOutputTarget;
+        }
+    }
 }
 
 bool MidiCvTrackEngine::receiveMidi(MidiPort port, const MidiMessage &message) {
@@ -44,8 +58,6 @@ bool MidiCvTrackEngine::receiveMidi(MidiPort port, const MidiMessage &message) {
             return false;
         }
     }
-
-    bool consumed = false;
 
     if (MidiUtils::matchSource(port, message, _midiCvTrack.source())) {
         if (_arpeggiatorEnabled) {
@@ -72,11 +84,10 @@ bool MidiCvTrackEngine::receiveMidi(MidiPort port, const MidiMessage &message) {
 
             updateActivity();
         }
-
-        consumed = true;
     }
 
-    return consumed;
+    // do not consume midi events to allow other midi/cv tracks react to the same events
+    return false;
 }
 
 bool MidiCvTrackEngine::activity() const {
@@ -88,12 +99,13 @@ bool MidiCvTrackEngine::gateOutput(int index) const {
     if (voiceIndex != -1) {
         const auto &voice = _voices[voiceIndex];
         uint32_t delay = _midiCvTrack.retrigger() ? RetriggerDelay : 0;
-        return voice.isActive() && (voice.ticks - os::ticks()) >= delay;
+        return !mute() && voice.isActive() && (voice.ticks - os::ticks()) >= delay;
     }
     return false;
 }
 
 float MidiCvTrackEngine::cvOutput(int index) const {
+    int transpose = _midiCvTrack.transpose();
     int voices = _midiCvTrack.voices();
     int signals = int(_midiCvTrack.voiceConfig()) + 1;
     int totalOutputs = voices * signals;
@@ -105,7 +117,7 @@ float MidiCvTrackEngine::cvOutput(int index) const {
     if (voiceIndex != -1) {
         const auto &voice = _voices[voiceIndex];
         switch (signalIndex) {
-        case 0: return noteToCv(voice.note) + pitchBendToCv(_pitchBend);
+        case 0: return voices == 1 ? _pitchCvOutput : noteToCv(voice.note + transpose) + pitchBendToCv(_pitchBend);
         case 1: return valueToCv(voice.velocity);
         case 2: return valueToCv(voice.pressure) + valueToCv(_channelPressure);
         }
@@ -136,7 +148,7 @@ void MidiCvTrackEngine::updateArpeggiator() {
 }
 
 void MidiCvTrackEngine::tickArpeggiator(uint32_t tick) {
-    _arpeggiatorEngine.tick(tick);
+    _arpeggiatorEngine.tick(tick, swing());
 
     ArpeggiatorEngine::Event event;
     while (_arpeggiatorEngine.getEvent(tick, event)) {
@@ -172,6 +184,11 @@ void MidiCvTrackEngine::resetVoices() {
 }
 
 void MidiCvTrackEngine::addVoice(int note, int velocity) {
+    // activate slide if there already are active voices
+    _slideActive = _midiCvTrack.voices() == 1 && std::any_of(_voices.begin(), _voices.end(), [] (const Voice &voice) {
+        return voice.isActive();
+    });
+
     // find a free voice
     const auto it = std::find_if(_voices.begin(), _voices.end(), [] (const Voice &voice) {
         return !voice.isActive() && !voice.isAllocated();

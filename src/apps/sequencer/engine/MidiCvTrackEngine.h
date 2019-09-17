@@ -18,6 +18,7 @@ public:
     virtual Track::TrackMode trackMode() const override { return Track::TrackMode::MidiCv; }
 
     virtual void reset() override;
+    virtual void restart() override;
     virtual void tick(uint32_t tick) override;
     virtual void update(float dt) override;
 
@@ -82,4 +83,9 @@ private:
 
     int16_t _pitchBend;
     uint8_t _channelPressure;
+
+    // slides for pitch, only valid in monophonic mode
+    bool _slideActive;
+    float _pitchCvOutputTarget;
+    float _pitchCvOutput;
 };

@@ -73,7 +73,7 @@
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
             },
-            "compilerPath": "C:/me/Software/stm32/gnu-mcu-eclipse-arm-none-eabi-gcc-8.2.1-1.2-20190119-1237-win64/bin/arm-none-eabi-gcc.exe",
+            "compilerPath": "C:/me/Software/stm32/gnu-mcu-eclipse-arm-none-eabi-gcc-8.2.1-1.7-20190524-0603-win64/bin/arm-none-eabi-gcc.exe",
             "cStandard": "c11",
             "cppStandard": "c++11"
         }

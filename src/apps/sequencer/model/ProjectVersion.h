@@ -48,6 +48,18 @@ enum ProjectVersion {
     // changed Arpeggiator::octaves
     Version17 = 17,
 
+    // added Project::timeSignature
+    Version18 = 18,
+
+    // expanded Song::slots to 64 entries
+    Version19 = 19,
+
+    // added MidiCvTrack::slideTime
+    Version20 = 20,
+
+    // added MidiCvTrack::transpose
+    Version21 = 21,
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

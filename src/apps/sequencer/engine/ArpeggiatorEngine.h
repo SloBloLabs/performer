@@ -27,7 +27,7 @@ public:
     void noteOn(int note);
     void noteOff(int note);
 
-    void tick(uint32_t tick);
+    void tick(uint32_t tick, int swing);
 
     bool getEvent(uint32_t tick, Event &event);
 
@@ -61,7 +61,7 @@ private:
 
     struct EventCompare {
         bool operator()(const Event &a, const Event &b) {
-            return a.tick < b.tick;;
+            return a.tick < b.tick;
         }
     };
 

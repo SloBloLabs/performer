@@ -62,7 +62,6 @@ void PatternPage::draw(Canvas &canvas) {
     WindowPainter::drawHeader(canvas, _model, _engine, "PATTERN");
     WindowPainter::drawFooter(canvas, functionNames, pageKeyState());
 
-    float syncMeasureFraction = _engine.syncMeasureFraction();
     bool hasRequested = false;
 
     canvas.setFont(Font::Tiny);
@@ -116,7 +115,7 @@ void PatternPage::draw(Canvas &canvas) {
 
     if (playState.hasSyncedRequests() && hasRequested) {
         canvas.setColor(0xf);
-        canvas.hline(0, 10, syncMeasureFraction * Width);
+        canvas.hline(0, 10, _engine.syncFraction() * Width);
     }
 }
 

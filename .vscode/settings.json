@@ -1,5 +1,4 @@
 {
-    "C_Cpp.intelliSenseEngine": "Tag Parser",
     "files.exclude": {
         "**/.git": true,
         "**/.DS_Store": true,
@@ -8,7 +7,6 @@
         "**/*.a": true,
         "**/*.obj": true
     },
-    "git.ignoreLimitWarning": true,
     "terminal.integrated.shell.windows": "C:\\me\\Software\\stm32\\msys64\\usr\\bin\\bash.exe",
     "terminal.integrated.shellArgs.windows": ["--login", "-i"],
     "terminal.integrated.env.windows": {
@@ -19,5 +17,10 @@
     },
     "files.associations": {
         "*.tcc": "cpp"
-    }
+    },
+    "C_Cpp.intelliSenseEngine": "Tag Parser",
+    "git.ignoreLimitWarning": true,
+    "cmake.configureOnOpen": false,
+    "cortex-debug.openocdPath": "${workspaceFolder}/tools/openocd/bin/openocd",
+    "cortex-debug.armToolchainPath": "${workspaceFolder}/tools/gcc-arm-none-eabi/bin"
 }

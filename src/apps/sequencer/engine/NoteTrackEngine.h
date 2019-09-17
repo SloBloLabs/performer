@@ -18,6 +18,7 @@ public:
     virtual Track::TrackMode trackMode() const override { return Track::TrackMode::Note; }
 
     virtual void reset() override;
+    virtual void restart() override;
     virtual void tick(uint32_t tick) override;
     virtual void update(float dt) override;
 
@@ -45,7 +46,6 @@ public:
 private:
     void triggerStep(uint32_t tick, uint32_t divisor);
     void recordStep(uint32_t tick, uint32_t divisor);
-    uint32_t applySwing(uint32_t tick) const;
     int noteFromMidiNote(uint8_t midiNote) const;
 
     NoteTrack &_noteTrack;
@@ -79,7 +79,7 @@ private:
 
     struct GateCompare {
         bool operator()(const Gate &a, const Gate &b) {
-            return a.tick < b.tick;;
+            return a.tick < b.tick;
         }
     };
 

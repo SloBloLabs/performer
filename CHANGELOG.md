@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.1.31 (15 Aug 2019)
+
+#### Improvements
+
+- Added _Slide Time_ parameter to MIDI/CV track (#121)
+- Added _Transpose_ parameter to MIDI/CV track (#128)
+- Allow MIDI/CV tracks to be muted
+
+#### Fixes
+
+- Use _Last Note_ note priority as default value on MIDI/CV track
+- Added swing to arpeggiator on MIDI/CV track
+
+## v0.1.30 (11 Aug 2019)
+
+This release is mostly dedicated to improving song mode. Many things have changed, please consult the manual for learning how to use it.
+
+#### Improvements
+
+- Added _Time Signature_ on project page for setting the duration of a bar (#118)
+- Increased the number of song slots to 64 (#118)
+- Added context menu to song page containing the _Init_ function (#118)
+- Added ability to duplicate song slots (#118)
+- Show song slots in a table (#118)
+- Allow song slots to play for up to 128 bars (#118)
+- Improved octave playback for arpeggiator (#109)
+
+#### Fixes
+
+- Do not reset MIDI/CV tracks when switching slots during song playback
+- Fixed some edge cases during song playback
+
 ## v0.1.29 (31 Jul 2019)
 
 #### Improvements
