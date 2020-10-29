@@ -121,7 +121,7 @@ public:
     void printItem(int index, StringBuilder &str) const {
         switch (_mode) {
         case Mode::Chromatic:
-            noteNameChromaticMode(str, index, Scale::Short1);
+            noteNameChromaticMode(str, index, 0, Scale::Short1);
             break;
         case Mode::Voltage:
             str("%+.3fV", _items[index] * (1.f / 1000.f));
@@ -140,11 +140,8 @@ public:
     void clear();
     void clearItems();
 
-    void write(WriteContext &context) const;
-    bool read(ReadContext &context);
-
-    fs::Error write(const char *path) const;
-    fs::Error read(const char *path);
+    void write(VersionedSerializedWriter &writer) const;
+    bool read(VersionedSerializedReader &reader);
 
     //----------------------------------------
     // Scale implementation
@@ -154,10 +151,10 @@ public:
         return mode() == Mode::Chromatic;
     }
 
-    void noteName(StringBuilder &str, int note, Format format) const override {
+    void noteName(StringBuilder &str, int note, int rootNote, Format format) const override {
         switch (_mode) {
         case Mode::Chromatic:
-            noteNameChromaticMode(str, note, format);
+            noteNameChromaticMode(str, note, rootNote, format);
             break;
         case Mode::Voltage:
             noteNameVoltageMode(str, note, format);
@@ -201,15 +198,20 @@ public:
     static Array userScales;
 
 private:
-    void noteNameChromaticMode(StringBuilder &str, int note, Format format) const {
+    void noteNameChromaticMode(StringBuilder &str, int note, int rootNote, Format format) const {
         bool printNote = format == Short1 || format == Long;
         bool printOctave = format == Short2 || format == Long;
 
         int octave = roundDownDivide(note, _size);
 
+        int noteIndex = _items[note - octave * _size] + rootNote;
+        while (noteIndex >= 12) {
+            noteIndex -= 12;
+            octave += 1;
+        }
+
         if (printNote) {
-            int index = _items[note - octave * _size];
-            Types::printNote(str, index);
+            Types::printNote(str, noteIndex);
         }
 
         if (printOctave) {

@@ -12,6 +12,7 @@
 #include "core/utils/StringBuilder.h"
 
 #include <array>
+#include <bitset>
 #include <cstdint>
 #include <initializer_list>
 
@@ -31,7 +32,7 @@ public:
     typedef SignedValue<7> Note;
     typedef SignedValue<7> NoteVariationRange;
     typedef UnsignedValue<3> NoteVariationProbability;
-    typedef UnsignedValue<6> Condition;
+    typedef UnsignedValue<7> Condition;
 
     static_assert(int(Types::Condition::Last) <= Condition::Max + 1, "Condition enum does not fit");
 
@@ -73,6 +74,7 @@ public:
     }
 
     static Types::LayerRange layerRange(Layer layer);
+    static int layerDefaultValue(Layer layer);
 
     class Step {
     public:
@@ -185,8 +187,8 @@ public:
 
         void clear();
 
-        void write(WriteContext &context) const;
-        void read(ReadContext &context);
+        void write(VersionedSerializedWriter &writer) const;
+        void read(VersionedSerializedReader &reader);
 
         bool operator==(const Step &other) const {
             return _data0.raw == other._data0.raw && _data1.raw == other._data1.raw;
@@ -210,12 +212,12 @@ public:
             BitField<uint32_t, 29, NoteVariationProbability::Bits> noteVariationProbability;
         } _data0;
         union {
-            uint16_t raw;
-            BitField<uint16_t, 0, Retrigger::Bits> retrigger;
-            BitField<uint16_t, 2, RetriggerProbability::Bits> retriggerProbability;
-            BitField<uint16_t, 5, GateOffset::Bits> gateOffset;
-            BitField<uint16_t, 9, Condition::Bits> condition;
-            // 1 bit left
+            uint32_t raw;
+            BitField<uint32_t, 0, Retrigger::Bits> retrigger;
+            BitField<uint32_t, 2, RetriggerProbability::Bits> retriggerProbability;
+            BitField<uint32_t, 5, GateOffset::Bits> gateOffset;
+            BitField<uint32_t, 9, Condition::Bits> condition;
+            // 16 bits left
         } _data1;
     };
 
@@ -231,21 +233,24 @@ public:
 
     // scale
 
-    int scale() const { return _scale; }
-    void setScale(int scale) {
-        _scale = clamp(scale, -1, Scale::Count - 1);
+    int scale() const { return _scale.get(isRouted(Routing::Target::Scale)); }
+    void setScale(int scale, bool routed = false) {
+        _scale.set(clamp(scale, -1, Scale::Count - 1), routed);
     }
 
-    int indexedScale() const { return _scale + 1; }
+    int indexedScale() const { return scale() + 1; }
     void setIndexedScale(int index) {
         setScale(index - 1);
     }
 
     void editScale(int value, bool shift) {
-        setScale(scale() + value);
+        if (!isRouted(Routing::Target::Scale)) {
+            setScale(scale() + value);
+        }
     }
 
     void printScale(StringBuilder &str) const {
+        printRouted(str, Routing::Target::Scale);
         str(scale() < 0 ? "Default" : Scale::name(scale()));
     }
 
@@ -255,21 +260,24 @@ public:
 
     // rootNote
 
-    int rootNote() const { return _rootNote; }
-    void setRootNote(int rootNote) {
-        _rootNote = clamp(rootNote, -1, 11);
+    int rootNote() const { return _rootNote.get(isRouted(Routing::Target::RootNote)); }
+    void setRootNote(int rootNote, bool routed = false) {
+        _rootNote.set(clamp(rootNote, -1, 11), routed);
     }
 
-    int indexedRootNote() const { return _rootNote + 1; }
+    int indexedRootNote() const { return rootNote() + 1; }
     void setIndexedRootNote(int index) {
         setRootNote(index - 1);
     }
 
     void editRootNote(int value, bool shift) {
-        setRootNote(rootNote() + value);
+        if (!isRouted(Routing::Target::RootNote)) {
+            setRootNote(rootNote() + value);
+        }
     }
 
     void printRootNote(StringBuilder &str) const {
+        printRouted(str, Routing::Target::RootNote);
         if (rootNote() < 0) {
             str("Default");
         } else {
@@ -421,12 +429,12 @@ public:
     void setGates(std::initializer_list<int> gates);
     void setNotes(std::initializer_list<int> notes);
 
-    void shiftSteps(int direction);
+    void shiftSteps(const std::bitset<CONFIG_STEP_COUNT> &selected, int direction);
 
     void duplicateSteps();
 
-    void write(WriteContext &context) const;
-    void read(ReadContext &context);
+    void write(VersionedSerializedWriter &writer) const;
+    void read(VersionedSerializedReader &reader);
 
 private:
     void setTrackIndex(int trackIndex) { _trackIndex = trackIndex; }
@@ -443,8 +451,8 @@ private:
     }
 
     int8_t _trackIndex = -1;
-    int8_t _scale;
-    int8_t _rootNote;
+    Routable<int8_t> _scale;
+    Routable<int8_t> _rootNote;
     Routable<uint16_t> _divisor;
     uint8_t _resetMeasure;
     Routable<Types::RunMode> _runMode;

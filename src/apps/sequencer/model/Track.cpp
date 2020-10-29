@@ -38,6 +38,14 @@ void Track::copyPattern(int src, int dst) {
     }
 }
 
+bool Track::duplicatePattern(int patternIndex) {
+    if (patternIndex < CONFIG_PATTERN_COUNT - 1) {
+        copyPattern(patternIndex, patternIndex + 1);
+        return true;
+    }
+    return false;
+}
+
 void Track::gateOutputName(int index, StringBuilder &str) const {
     switch (_trackMode) {
     case TrackMode::Note:
@@ -66,28 +74,26 @@ void Track::cvOutputName(int index, StringBuilder &str) const {
     }
 }
 
-void Track::write(WriteContext &context) const {
-    auto &writer = context.writer;
+void Track::write(VersionedSerializedWriter &writer) const {
     writer.writeEnum(_trackMode, trackModeSerialize);
     writer.write(_linkTrack);
 
     switch (_trackMode) {
     case TrackMode::Note:
-        _track.note->write(context);
+        _track.note->write(writer);
         break;
     case TrackMode::Curve:
-        _track.curve->write(context);
+        _track.curve->write(writer);
         break;
     case TrackMode::MidiCv:
-        _track.midiCv->write(context);
+        _track.midiCv->write(writer);
         break;
     case TrackMode::Last:
         break;
     }
 }
 
-void Track::read(ReadContext &context) {
-    auto &reader = context.reader;
+void Track::read(VersionedSerializedReader &reader) {
     reader.readEnum(_trackMode, trackModeSerialize);
     reader.read(_linkTrack);
 
@@ -95,13 +101,13 @@ void Track::read(ReadContext &context) {
 
     switch (_trackMode) {
     case TrackMode::Note:
-        _track.note->read(context);
+        _track.note->read(reader);
         break;
     case TrackMode::Curve:
-        _track.curve->read(context);
+        _track.curve->read(reader);
         break;
     case TrackMode::MidiCv:
-        _track.midiCv->read(context);
+        _track.midiCv->read(reader);
         break;
     case TrackMode::Last:
         break;

@@ -50,6 +50,13 @@ struct {
 } version_tag;
 } // extern "C"
 
+inline Dac::Type getDacType() {
+    switch (HardwareConfig::dacType()) {
+    case DacType::DAC8568C: return Dac::Type::DAC8568C;
+    case DacType::DAC8568A: return Dac::Type::DAC8568A;
+    default: return Dac::Type::DAC8568C;
+    }
+}
 
 static CCMRAM_BSS ClockTimer clockTimer;
 static CCMRAM_BSS ShiftRegister shiftRegister;
@@ -57,7 +64,7 @@ static CCMRAM_BSS ButtonLedMatrix blm(shiftRegister, HardwareConfig::invertLeds(
 static CCMRAM_BSS Encoder encoder(HardwareConfig::reverseEncoder());
 static Lcd lcd;
 static Adc adc;
-static CCMRAM_BSS Dac dac;
+static CCMRAM_BSS Dac dac(getDacType());
 static CCMRAM_BSS Dio dio;
 static CCMRAM_BSS GateOutput gateOutput(shiftRegister);
 static CCMRAM_BSS Midi midi;
@@ -66,6 +73,8 @@ static UsbH usbh(usbMidi);
 static SdCard sdCard;
 
 static fs::Volume volume(sdCard);
+
+static CCMRAM_BSS uint8_t midiMessagePayloadPool[16];
 
 static CCMRAM_BSS Profiler profiler;
 
@@ -144,6 +153,8 @@ int main(void) {
     System::startWatchdog(1000);
     Console::init();
     HighResolutionTimer::init();
+
+    MidiMessage::setPayloadPool(midiMessagePayloadPool, sizeof(midiMessagePayloadPool));
 
     dbg_set_assert_handler(&assert_handler);
 

@@ -1,4 +1,6 @@
 #include "Settings.h"
+#include "FlashWriter.h"
+#include "FlashReader.h"
 
 const char *Settings::Filename = "SETTINGS.DAT";
 
@@ -10,18 +12,18 @@ void Settings::clear() {
     _calibration.clear();
 }
 
-void Settings::write(WriteContext &context) const {
-    _calibration.write(context);
+void Settings::write(VersionedSerializedWriter &writer) const {
+    _calibration.write(writer);
 
-    context.writer.writeHash();
+    writer.writeHash();
 }
 
-bool Settings::read(ReadContext &context) {
+bool Settings::read(VersionedSerializedReader &reader) {
     clear();
 
-    _calibration.read(context);
+    _calibration.read(reader);
 
-    bool success = context.reader.checkHash();
+    bool success = reader.checkHash();
     if (!success) {
         clear();
     }
@@ -29,79 +31,26 @@ bool Settings::read(ReadContext &context) {
     return success;
 }
 
-fs::Error Settings::write(const char *path) const {
-    fs::FileWriter fileWriter(path);
-    if (fileWriter.error() != fs::OK) {
-        return fileWriter.error();
-    }
+void Settings::writeToFlash() const {
+    FlashWriter flashWriter(CONFIG_SETTINGS_FLASH_ADDR, CONFIG_SETTINGS_FLASH_SECTOR);
 
-    FileHeader header(FileType::Settings, 0, "SETTINGS");
-    fileWriter.write(&header, sizeof(header));
-
-    VersionedSerializedWriter writer(
-        [&fileWriter] (const void *data, size_t len) { fileWriter.write(data, len); },
-        Version
-    );
-
-    WriteContext context = { writer };
-    write(context);
-
-    return fileWriter.finish();
-}
-
-fs::Error Settings::read(const char *path) {
-    fs::FileReader fileReader(path);
-    if (fileReader.error() != fs::OK) {
-        return fileReader.error();
-    }
-
-    FileHeader header;
-    fileReader.read(&header, sizeof(header));
-
-    VersionedSerializedReader reader(
-        [&fileReader] (void *data, size_t len) { fileReader.read(data, len); },
-        Version
-    );
-
-    ReadContext context = { reader };
-    bool success = read(context);
-
-    auto error = fileReader.finish();
-    if (error == fs::OK && !success) {
-        error = fs::INVALID_CHECKSUM;
-    }
-
-    return error;
-}
-
-void Settings::write(FlashWriter &flashWriter) const {
     VersionedSerializedWriter writer(
         [&flashWriter] (const void *data, size_t len) { flashWriter.write(data, len); },
         Version
     );
 
-    WriteContext context = { writer };
-    write(context);
+    write(writer);
 
     flashWriter.finish();
 }
 
-bool Settings::read(FlashReader &flashReader) {
+bool Settings::readFromFlash() {
+    FlashReader flashReader(CONFIG_SETTINGS_FLASH_ADDR);
+
     VersionedSerializedReader reader(
         [&flashReader] (void *data, size_t len) { flashReader.read(data, len); },
         Version
     );
 
-    ReadContext context = { reader };
-    return read(context);
-}
-
-void Settings::writeToFlash() const {
-    FlashWriter flashWriter(CONFIG_SETTINGS_FLASH_ADDR, CONFIG_SETTINGS_FLASH_SECTOR);
-    write(flashWriter);
-}
-
-bool Settings::readFromFlash() {
-    FlashReader flashReader(CONFIG_SETTINGS_FLASH_ADDR);
-    return read(flashReader);
+    return read(reader);
 }

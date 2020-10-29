@@ -67,6 +67,7 @@ void NoteSequenceEditPage::enter() {
 }
 
 void NoteSequenceEditPage::exit() {
+    _engine.selectedTrackEngine().as<NoteTrackEngine>().setMonitorStep(-1);
 }
 
 void NoteSequenceEditPage::draw(Canvas &canvas) {
@@ -188,10 +189,10 @@ void NoteSequenceEditPage::draw(Canvas &canvas) {
             int rootNote = sequence.selectedRootNote(_model.project().rootNote());
             canvas.setColor(0xf);
             FixedStringBuilder<8> str;
-            scale.noteName(str, step.note() + rootNote, Scale::Short1);
+            scale.noteName(str, step.note(), rootNote, Scale::Short1);
             canvas.drawText(x + (stepWidth - canvas.textWidth(str) + 1) / 2, y + 20, str);
             str.reset();
-            scale.noteName(str, step.note() + rootNote, Scale::Short2);
+            scale.noteName(str, step.note(), rootNote, Scale::Short2);
             canvas.drawText(x + (stepWidth - canvas.textWidth(str) + 1) / 2, y + 27, str);
             break;
         }
@@ -331,7 +332,7 @@ void NoteSequenceEditPage::keyPress(KeyPressEvent &event) {
 
     if (key.isLeft()) {
         if (key.shiftModifier()) {
-            sequence.shiftSteps(-1);
+            sequence.shiftSteps(_stepSelection.selected(), -1);
         } else {
             _section = std::max(0, _section - 1);
         }
@@ -339,7 +340,7 @@ void NoteSequenceEditPage::keyPress(KeyPressEvent &event) {
     }
     if (key.isRight()) {
         if (key.shiftModifier()) {
-            sequence.shiftSteps(1);
+            sequence.shiftSteps(_stepSelection.selected(), 1);
         } else {
             _section = std::min(3, _section + 1);
         }
@@ -662,7 +663,7 @@ void NoteSequenceEditPage::drawDetail(Canvas &canvas, const NoteSequence::Step &
         break;
     case Layer::Note:
         str.reset();
-        scale.noteName(str, step.note() + sequence.selectedRootNote(_model.project().rootNote()), Scale::Long);
+        scale.noteName(str, step.note(), sequence.selectedRootNote(_model.project().rootNote()), Scale::Long);
         canvas.setFont(Font::Small);
         canvas.drawTextCentered(64 + 32, 16, 64, 32, str);
         break;
@@ -758,8 +759,10 @@ void NoteSequenceEditPage::generateSequence() {
     _manager.pages().generatorSelect.show([this] (bool success, Generator::Mode mode) {
         if (success) {
             auto builder = _builderContainer.create<NoteSequenceBuilder>(_project.selectedNoteSequence(), layer());
-            auto generator = Generator::create(mode, *builder);
-            _manager.pages().generator.show(generator);
+            auto generator = Generator::execute(mode, *builder);
+            if (generator) {
+                _manager.pages().generator.show(generator);
+            }
         }
     });
 }

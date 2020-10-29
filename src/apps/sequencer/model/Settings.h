@@ -2,9 +2,6 @@
 
 #include "Calibration.h"
 #include "Serialize.h"
-#include "FileDefs.h"
-#include "FlashWriter.h"
-#include "FlashReader.h"
 
 class Settings {
 public:
@@ -19,14 +16,8 @@ public:
 
     void clear();
 
-    void write(WriteContext &context) const;
-    bool read(ReadContext &context);
-
-    fs::Error write(const char *path) const;
-    fs::Error read(const char *path);
-
-    void write(FlashWriter &flashWriter) const;
-    bool read(FlashReader &flashReader);
+    void write(VersionedSerializedWriter &writer) const;
+    bool read(VersionedSerializedReader &reader);
 
     void writeToFlash() const;
     bool readFromFlash();

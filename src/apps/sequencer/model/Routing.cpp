@@ -13,13 +13,11 @@ void Routing::CvSource::clear() {
     _range = Types::VoltageRange::Bipolar5V;
 }
 
-void Routing::CvSource::write(WriteContext &context) const {
-    auto &writer = context.writer;
+void Routing::CvSource::write(VersionedSerializedWriter &writer) const {
     writer.write(_range);
 }
 
-void Routing::CvSource::read(ReadContext &context) {
-    auto &reader = context.reader;
+void Routing::CvSource::read(VersionedSerializedReader &reader) {
     reader.read(_range);
 }
 
@@ -38,17 +36,15 @@ void Routing::MidiSource::clear() {
     _noteRange = 2;
 }
 
-void Routing::MidiSource::write(WriteContext &context) const {
-    auto &writer = context.writer;
-    _source.write(context);
+void Routing::MidiSource::write(VersionedSerializedWriter &writer) const {
+    _source.write(writer);
     writer.write(_event);
     writer.write(_controlNumberOrNote);
     writer.write(_noteRange);
 }
 
-void Routing::MidiSource::read(ReadContext &context) {
-    auto &reader = context.reader;
-    _source.read(context);
+void Routing::MidiSource::read(VersionedSerializedReader &reader) {
+    _source.read(reader);
     reader.read(_event);
     reader.read(_controlNumberOrNote);
     reader.read(_noteRange, ProjectVersion::Version13);
@@ -81,33 +77,31 @@ void Routing::Route::clear() {
     _midiSource.clear();
 }
 
-void Routing::Route::write(WriteContext &context) const {
-    auto &writer = context.writer;
+void Routing::Route::write(VersionedSerializedWriter &writer) const {
     writer.writeEnum(_target, targetSerialize);
     writer.write(_tracks);
     writer.write(_min);
     writer.write(_max);
     writer.write(_source);
     if (isCvSource(_source)) {
-        _cvSource.write(context);
+        _cvSource.write(writer);
     }
     if (isMidiSource(_source)) {
-        _midiSource.write(context);
+        _midiSource.write(writer);
     }
 }
 
-void Routing::Route::read(ReadContext &context) {
-    auto &reader = context.reader;
+void Routing::Route::read(VersionedSerializedReader &reader) {
     reader.readEnum(_target, targetSerialize);
     reader.read(_tracks);
     reader.read(_min);
     reader.read(_max);
     reader.read(_source);
     if (isCvSource(_source)) {
-        _cvSource.read(context);
+        _cvSource.read(reader);
     }
     if (isMidiSource(_source)) {
-        _midiSource.read(context);
+        _midiSource.read(reader);
     }
 }
 
@@ -217,12 +211,12 @@ void Routing::writeTarget(Target target, uint8_t tracks, float normalized) {
     }
 }
 
-void Routing::write(WriteContext &context) const {
-    writeArray(context, _routes);
+void Routing::write(VersionedSerializedWriter &writer) const {
+    writeArray(writer, _routes);
 }
 
-void Routing::read(ReadContext &context) {
-    readArray(context, _routes);
+void Routing::read(VersionedSerializedReader &reader) {
+    readArray(reader, _routes);
 }
 
 static std::array<uint8_t, size_t(Routing::Target::Last)> routedSet;
@@ -264,37 +258,41 @@ struct TargetInfo {
     int16_t max;
     int16_t minDef;
     int16_t maxDef;
+    int8_t shiftStep;
 };
 
 const TargetInfo targetInfos[int(Routing::Target::Last)] = {
-    [int(Routing::Target::None)]                            = { 0,      0,      0,      0       },
+    [int(Routing::Target::None)]                            = { 0,      0,      0,      0,      0       },
     // Engine targets
-    [int(Routing::Target::Play)]                            = { 0,      1,      0,      1       },
-    [int(Routing::Target::Record)]                          = { 0,      1,      0,      1       },
-    [int(Routing::Target::TapTempo)]                        = { 0,      1,      0,      1       },
+    [int(Routing::Target::Play)]                            = { 0,      1,      0,      1,      1       },
+    [int(Routing::Target::Record)]                          = { 0,      1,      0,      1,      1       },
+    [int(Routing::Target::TapTempo)]                        = { 0,      1,      0,      1,      1       },
     // Project targets
-    [int(Routing::Target::Tempo)]                           = { 20,     500,    100,    200     },
-    [int(Routing::Target::Swing)]                           = { 50,     75,     50,     75      },
+    [int(Routing::Target::Tempo)]                           = { 1,      1000,   100,    200,    10      },
+    [int(Routing::Target::Swing)]                           = { 50,     75,     50,     75,     5       },
     // PlayState targets
-    [int(Routing::Target::Mute)]                            = { 0,      1,      0,      1       },
-    [int(Routing::Target::Fill)]                            = { 0,      1,      0,      1       },
-    [int(Routing::Target::FillAmount)]                      = { 0,      100,    0,      100     },
-    [int(Routing::Target::Pattern)]                         = { 0,      15,     0,      15      },
+    [int(Routing::Target::Mute)]                            = { 0,      1,      0,      1,      1       },
+    [int(Routing::Target::Fill)]                            = { 0,      1,      0,      1,      1       },
+    [int(Routing::Target::FillAmount)]                      = { 0,      100,    0,      100,    10      },
+    [int(Routing::Target::Pattern)]                         = { 0,      15,     0,      15,     1       },
     // Track targets
-    [int(Routing::Target::SlideTime)]                       = { 0,      100,    0,      100,    },
-    [int(Routing::Target::Octave)]                          = { -10,    10,     -1,     1       },
-    [int(Routing::Target::Transpose)]                       = { -60,    60,     -12,    12      },
-    [int(Routing::Target::Rotate)]                          = { -64,    64,     0,      64      },
-    [int(Routing::Target::GateProbabilityBias)]             = { -8,     8,      -8,     8       },
-    [int(Routing::Target::RetriggerProbabilityBias)]        = { -8,     8,      -8,     8       },
-    [int(Routing::Target::LengthBias)]                      = { -8,     8,      -8,     8       },
-    [int(Routing::Target::NoteProbabilityBias)]             = { -8,     8,      -8,     8       },
-    [int(Routing::Target::ShapeProbabilityBias)]            = { -8,     8,      -8,     8       },
+    [int(Routing::Target::SlideTime)]                       = { 0,      100,    0,      100,    10      },
+    [int(Routing::Target::Octave)]                          = { -10,    10,     -1,     1,      1       },
+    [int(Routing::Target::Transpose)]                       = { -60,    60,     -12,    12,     12      },
+    [int(Routing::Target::Offset)]                          = { -500,   500,    -100,   100,    100     },
+    [int(Routing::Target::Rotate)]                          = { -64,    64,     0,      64,     16      },
+    [int(Routing::Target::GateProbabilityBias)]             = { -8,     8,      -8,     8,      8       },
+    [int(Routing::Target::RetriggerProbabilityBias)]        = { -8,     8,      -8,     8,      8       },
+    [int(Routing::Target::LengthBias)]                      = { -8,     8,      -8,     8,      8       },
+    [int(Routing::Target::NoteProbabilityBias)]             = { -8,     8,      -8,     8,      8       },
+    [int(Routing::Target::ShapeProbabilityBias)]            = { -8,     8,      -8,     8,      8       },
     // Sequence targets
-    [int(Routing::Target::Divisor)]                         = { 1,      768,    6,      24      },
-    [int(Routing::Target::RunMode)]                         = { 0,      5,      0,      5       },
-    [int(Routing::Target::FirstStep)]                       = { 0,      63,     0,      63      },
-    [int(Routing::Target::LastStep)]                        = { 0,      63,     0,      63      },
+    [int(Routing::Target::FirstStep)]                       = { 0,      63,     0,      63,     16      },
+    [int(Routing::Target::LastStep)]                        = { 0,      63,     0,      63,     16      },
+    [int(Routing::Target::RunMode)]                         = { 0,      5,      0,      5,      1       },
+    [int(Routing::Target::Divisor)]                         = { 1,      768,    6,      24,     1       },
+    [int(Routing::Target::Scale)]                           = { 0,      23,     0,      23,     1       },
+    [int(Routing::Target::RootNote)]                        = { 0,      11,     0,      11,     1       },
 };
 
 float Routing::normalizeTargetValue(Routing::Target target, float value) {
@@ -312,9 +310,9 @@ std::pair<float, float> Routing::normalizedDefaultRange(Target target) {
     return { normalizeTargetValue(target, info.minDef), normalizeTargetValue(target, info.maxDef) };
 }
 
-float Routing::targetValueStep(Routing::Target target) {
+float Routing::targetValueStep(Routing::Target target, bool shift) {
     const auto &info = targetInfos[int(target)];
-    return 1.f / (info.max - info.min);
+    return 1.f / (info.max - info.min) * (shift ? info.shiftStep : 1);
 }
 
 void Routing::printTargetValue(Routing::Target target, float normalized, StringBuilder &str) {
@@ -337,10 +335,14 @@ void Routing::printTargetValue(Routing::Target target, float normalized, StringB
     case Target::Rotate:
         str("%+d", intValue);
         break;
+    case Target::Offset:
+        str("%+.2fV", value * 0.01f);
+        break;
     case Target::GateProbabilityBias:
     case Target::RetriggerProbabilityBias:
     case Target::LengthBias:
     case Target::NoteProbabilityBias:
+    case Target::ShapeProbabilityBias:
         str("%+.1f%%", value * 12.5f);
         break;
     case Target::Divisor:
@@ -354,9 +356,18 @@ void Routing::printTargetValue(Routing::Target target, float normalized, StringB
     case Target::Pattern:
         str("%d", intValue + 1);
         break;
+    case Target::Play:
+    case Target::Record:
+    case Target::TapTempo:
     case Target::Mute:
     case Target::Fill:
         str(intValue ? "on" : "off");
+        break;
+    case Target::Scale:
+        str("%s", Scale::name(intValue));
+        break;
+    case Target::RootNote:
+        Types::printNote(str, intValue);
         break;
     default:
         str("%d", intValue);

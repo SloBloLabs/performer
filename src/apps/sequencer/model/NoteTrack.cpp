@@ -35,6 +35,7 @@ void NoteTrack::writeRouted(Routing::Target target, int intValue, float floatVal
 void NoteTrack::clear() {
     setPlayMode(Types::PlayMode::Aligned);
     setFillMode(FillMode::Gates);
+    setFillMuted(true);
     setCvUpdateMode(CvUpdateMode::Gate);
     setSlideTime(50);
     setOctave(0);
@@ -50,10 +51,10 @@ void NoteTrack::clear() {
     }
 }
 
-void NoteTrack::write(WriteContext &context) const {
-    auto writer = context.writer;
+void NoteTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_playMode);
     writer.write(_fillMode);
+    writer.write(_fillMuted);
     writer.write(_cvUpdateMode);
     writer.write(_slideTime.base);
     writer.write(_octave.base);
@@ -63,13 +64,15 @@ void NoteTrack::write(WriteContext &context) const {
     writer.write(_retriggerProbabilityBias.base);
     writer.write(_lengthBias.base);
     writer.write(_noteProbabilityBias.base);
-    writeArray(context, _sequences);
+    writeArray(writer, _sequences);
 }
 
-void NoteTrack::read(ReadContext &context) {
-    auto reader = context.reader;
+void NoteTrack::read(VersionedSerializedReader &reader) {
+    reader.backupHash();
+
     reader.read(_playMode);
     reader.read(_fillMode);
+    reader.read(_fillMuted, ProjectVersion::Version26);
     reader.read(_cvUpdateMode, ProjectVersion::Version4);
     reader.read(_slideTime.base);
     reader.read(_octave.base);
@@ -79,5 +82,12 @@ void NoteTrack::read(ReadContext &context) {
     reader.read(_retriggerProbabilityBias.base);
     reader.read(_lengthBias.base);
     reader.read(_noteProbabilityBias.base);
-    readArray(context, _sequences);
+
+    // There is a bug in previous firmware versions where writing the properties
+    // of a note track did not update the hash value.
+    if (reader.dataVersion() < ProjectVersion::Version23) {
+        reader.restoreHash();
+    }
+
+    readArray(reader, _sequences);
 }

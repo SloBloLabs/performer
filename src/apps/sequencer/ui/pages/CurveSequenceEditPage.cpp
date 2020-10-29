@@ -94,6 +94,8 @@ CurveSequenceEditPage::CurveSequenceEditPage(PageManager &manager, PageContext &
 }
 
 void CurveSequenceEditPage::enter() {
+    updateMonitorStep();
+
     _showDetail = false;
 }
 
@@ -259,7 +261,7 @@ void CurveSequenceEditPage::updateLeds(Leds &leds) {
     for (int i = 0; i < 16; ++i) {
         int stepIndex = stepOffset() + i;
         bool red = (stepIndex == currentStep) || _stepSelection[stepIndex];
-        bool green = (stepIndex != currentStep) && _stepSelection[stepIndex];
+        bool green = (stepIndex != currentStep) && (sequence.step(stepIndex).gate() > 0 || _stepSelection[stepIndex]);
         leds.set(MatrixMap::fromStep(i), red, green);
     }
 
@@ -280,10 +282,12 @@ void CurveSequenceEditPage::updateLeds(Leds &leds) {
 
 void CurveSequenceEditPage::keyDown(KeyEvent &event) {
     _stepSelection.keyDown(event, stepOffset());
+    updateMonitorStep();
 }
 
 void CurveSequenceEditPage::keyUp(KeyEvent &event) {
     _stepSelection.keyUp(event, stepOffset());
+    updateMonitorStep();
 }
 
 void CurveSequenceEditPage::keyPress(KeyPressEvent &event) {
@@ -307,6 +311,7 @@ void CurveSequenceEditPage::keyPress(KeyPressEvent &event) {
     }
 
     _stepSelection.keyPress(event, stepOffset());
+    updateMonitorStep();
 
     if (key.isFunction()) {
         switchLayer(key.function(), key.shiftModifier());
@@ -315,7 +320,7 @@ void CurveSequenceEditPage::keyPress(KeyPressEvent &event) {
 
     if (key.isLeft()) {
         if (key.shiftModifier()) {
-            sequence.shiftSteps(-1);
+            sequence.shiftSteps(_stepSelection.selected(), -1);
         } else {
             _section = std::max(0, _section - 1);
         }
@@ -323,7 +328,7 @@ void CurveSequenceEditPage::keyPress(KeyPressEvent &event) {
     }
     if (key.isRight()) {
         if (key.shiftModifier()) {
-            sequence.shiftSteps(1);
+            sequence.shiftSteps(_stepSelection.selected(), 1);
         } else {
             _section = std::min(3, _section + 1);
         }
@@ -467,6 +472,17 @@ int CurveSequenceEditPage::activeFunctionKey() {
     return -1;
 }
 
+void CurveSequenceEditPage::updateMonitorStep() {
+    auto &trackEngine = _engine.selectedTrackEngine().as<CurveTrackEngine>();
+
+    if ((layer() == Layer::Min || layer() == Layer::Max) && !_stepSelection.isPersisted() && _stepSelection.any()) {
+        trackEngine.setMonitorStep(_stepSelection.first());
+        trackEngine.setMonitorStepLevel(layer() == Layer::Min ? CurveTrackEngine::MonitorLevel::Min : CurveTrackEngine::MonitorLevel::Max);
+    } else {
+        trackEngine.setMonitorStep(-1);
+    }
+}
+
 void CurveSequenceEditPage::drawDetail(Canvas &canvas, const CurveSequence::Step &step) {
 
     FixedStringBuilder<16> str;
@@ -584,8 +600,10 @@ void CurveSequenceEditPage::generateSequence() {
     _manager.pages().generatorSelect.show([this] (bool success, Generator::Mode mode) {
         if (success) {
             auto builder = _builderContainer.create<CurveSequenceBuilder>(_project.selectedCurveSequence(), layer());
-            auto generator = Generator::create(mode, *builder);
-            _manager.pages().generator.show(generator);
+            auto generator = Generator::execute(mode, *builder);
+            if (generator) {
+                _manager.pages().generator.show(generator);
+            }
         }
     });
 }

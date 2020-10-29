@@ -34,6 +34,7 @@ static bool evalStepCondition(const NoteSequence::Step &step, int iteration, boo
         if (index >= int(Types::Condition::Loop) && index < int(Types::Condition::Last)) {
             auto loop = Types::conditionLoop(condition);
             prevCondition = iteration % loop.base == loop.offset;
+            if (loop.invert) prevCondition = !prevCondition;
             return prevCondition;
         }
     }
@@ -67,7 +68,7 @@ static int evalTransposition(const Scale &scale, int octave, int transpose) {
 
 // evaluate note voltage
 static float evalStepNote(const NoteSequence::Step &step, int probabilityBias, const Scale &scale, int rootNote, int octave, int transpose, bool useVariation = true) {
-    int note = step.note() + (scale.isChromatic() ? rootNote : 0) + evalTransposition(scale, octave, transpose);
+    int note = step.note() + evalTransposition(scale, octave, transpose);
     int probability = clamp(step.noteVariationProbability() + probabilityBias, -1, NoteSequence::NoteVariationProbability::Max);
     if (useVariation && int(rng.nextRange(NoteSequence::NoteVariationProbability::Range)) <= probability) {
         int offset = step.noteVariationRange() == 0 ? 0 : rng.nextRange(std::abs(step.noteVariationRange()) + 1);
@@ -76,7 +77,7 @@ static float evalStepNote(const NoteSequence::Step &step, int probabilityBias, c
         }
         note = NoteSequence::Note::clamp(note + offset);
     }
-    return scale.noteToVolts(note);
+    return scale.noteToVolts(note) + (scale.isChromatic() ? rootNote : 0) * (1.f / 12.f);
 }
 
 void NoteTrackEngine::reset() {
@@ -102,7 +103,7 @@ void NoteTrackEngine::restart() {
     _currentStep = -1;
 }
 
-void NoteTrackEngine::tick(uint32_t tick) {
+TrackEngine::TickResult NoteTrackEngine::tick(uint32_t tick) {
     ASSERT(_sequence != nullptr, "invalid sequence");
     const auto &sequence = *_sequence;
     const auto *linkData = _linkedTrackEngine ? _linkedTrackEngine->linkData() : nullptr;
@@ -156,24 +157,33 @@ void NoteTrackEngine::tick(uint32_t tick) {
 
     auto &midiOutputEngine = _engine.midiOutputEngine();
 
+    TickResult result = TickResult::NoUpdate;
+
     while (!_gateQueue.empty() && tick >= _gateQueue.front().tick) {
-        _activity = _gateQueue.front().gate;
-        _gateOutput = (!mute() || fill()) && _activity;
+        if (!_monitorOverrideActive) {
+            result |= TickResult::GateUpdate;
+            _activity = _gateQueue.front().gate;
+            _gateOutput = (!mute() || fill()) && _activity;
+            midiOutputEngine.sendGate(_track.trackIndex(), _gateOutput);
+        }
         _gateQueue.pop();
 
-        midiOutputEngine.sendGate(_track.trackIndex(), _gateOutput);
     }
 
     while (!_cvQueue.empty() && tick >= _cvQueue.front().tick) {
         if (!mute() || _noteTrack.cvUpdateMode() == NoteTrack::CvUpdateMode::Always) {
-            _cvOutputTarget = _cvQueue.front().cv;
-            _slideActive = _cvQueue.front().slide;
-
-            midiOutputEngine.sendCv(_track.trackIndex(), _cvOutputTarget);
-            midiOutputEngine.sendSlide(_track.trackIndex(), _slideActive);
+            if (!_monitorOverrideActive) {
+                result |= TickResult::CvUpdate;
+                _cvOutputTarget = _cvQueue.front().cv;
+                _slideActive = _cvQueue.front().slide;
+                midiOutputEngine.sendCv(_track.trackIndex(), _cvOutputTarget);
+                midiOutputEngine.sendSlide(_track.trackIndex(), _slideActive);
+            }
         }
         _cvQueue.pop();
     }
+
+    return result;
 }
 
 void NoteTrackEngine::update(float dt) {
@@ -187,33 +197,61 @@ void NoteTrackEngine::update(float dt) {
     int transpose = _noteTrack.transpose();
 
     // enable/disable step recording mode
-    if (_engine.recording() && _model.project().recordMode() == Types::RecordMode::StepRecord) {
-        if (_currentRecordStep == -1) {
-            _currentRecordStep = _sequence->firstStep();
+    if (recording && _model.project().recordMode() == Types::RecordMode::StepRecord) {
+        if (!_stepRecorder.enabled()) {
+            _stepRecorder.start(sequence);
         }
     } else {
-        _currentRecordStep = -1;
+        if (_stepRecorder.enabled()) {
+            _stepRecorder.stop();
+        }
     }
 
-    // override due to monitoring or recording
-    bool isStepRecordMode = _model.project().recordMode() == Types::RecordMode::StepRecord;
-    if (!running && (!recording || isStepRecordMode) && _monitorStepIndex >= 0) {
-        // step monitoring (first priority)
-        const auto &step = sequence.step(_monitorStepIndex);
-        _cvOutputTarget = evalStepNote(step, 0, scale, rootNote, octave, transpose, false);
+    // helper to send gate/cv from monitoring to midi output engine
+    auto sendToMidiOutputEngine = [this] (bool gate, float cv = 0.f) {
+        auto &midiOutputEngine = _engine.midiOutputEngine();
+        midiOutputEngine.sendGate(_track.trackIndex(), gate);
+        if (gate) {
+            midiOutputEngine.sendCv(_track.trackIndex(), cv);
+            midiOutputEngine.sendSlide(_track.trackIndex(), false);
+        }
+    };
+
+    // set monitor override
+    auto setOverride = [&] (float cv) {
+        _cvOutputTarget = cv;
         _activity = _gateOutput = true;
         _monitorOverrideActive = true;
-    } else if ((!running || !isStepRecordMode) && _recordHistory.isNoteActive()) {
-        // midi monitoring (second priority)
-        int note = noteFromMidiNote(_recordHistory.activeNote()) + evalTransposition(scale, octave, transpose);
-        _cvOutputTarget = scale.noteToVolts(note);
-        _activity = _gateOutput = true;
-        _monitorOverrideActive = true;
-    } else {
+        // pass through to midi engine
+        sendToMidiOutputEngine(true, cv);
+    };
+
+    // clear monitor override
+    auto clearOverride = [&] () {
         if (_monitorOverrideActive) {
             _activity = _gateOutput = false;
             _monitorOverrideActive = false;
+            sendToMidiOutputEngine(false);
         }
+    };
+
+    // check for step monitoring
+    bool stepMonitoring = (!running && _monitorStepIndex >= 0);
+
+    // check for live monitoring
+    auto monitorMode = _model.project().monitorMode();
+    bool liveMonitoring =
+        (monitorMode == Types::MonitorMode::Always) ||
+        (monitorMode == Types::MonitorMode::Stopped && !running);
+
+    if (stepMonitoring) {
+        const auto &step = sequence.step(_monitorStepIndex);
+        setOverride(evalStepNote(step, 0, scale, rootNote, octave, transpose, false));
+    } else if (liveMonitoring && _recordHistory.isNoteActive()) {
+        int note = noteFromMidiNote(_recordHistory.activeNote()) + evalTransposition(scale, octave, transpose);
+        setOverride(scale.noteToVolts(note) + (scale.isChromatic() ? rootNote : 0) * (1.f / 12.f));
+    } else {
+        clearOverride();
     }
 
     if (_slideActive && _noteTrack.slideTime() > 0) {
@@ -232,19 +270,12 @@ void NoteTrackEngine::monitorMidi(uint32_t tick, const MidiMessage &message) {
     _recordHistory.write(tick, message);
 
     if (_engine.recording() && _model.project().recordMode() == Types::RecordMode::StepRecord) {
-        if (message.isNoteOn()) {
-            // record to step
-            auto &step = _sequence->step(_currentRecordStep);
-            step.setGate(true);
-            step.setNote(noteFromMidiNote(message.note()));
-
-            // move to next step
-            ++_currentRecordStep;
-            if (_currentRecordStep > _sequence->lastStep()) {
-                _currentRecordStep = _sequence->firstStep();
-            }
-        }
+        _stepRecorder.process(message, *_sequence, [this] (int midiNote) { return noteFromMidiNote(midiNote); });
     }
+}
+
+void NoteTrackEngine::clearMidiMonitoring() {
+    _recordHistory.clear();
 }
 
 void NoteTrackEngine::setMonitorStep(int index) {
@@ -253,7 +284,7 @@ void NoteTrackEngine::setMonitorStep(int index) {
     // in step record mode, select step to start recording recording from
     if (_engine.recording() && _model.project().recordMode() == Types::RecordMode::StepRecord &&
         index >= _sequence->firstStep() && index <= _sequence->lastStep()) {
-        _currentRecordStep = index;
+        _stepRecorder.setStepIndex(index);
     }
 }
 

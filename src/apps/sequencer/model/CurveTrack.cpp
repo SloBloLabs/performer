@@ -6,6 +6,9 @@ void CurveTrack::writeRouted(Routing::Target target, int intValue, float floatVa
     case Routing::Target::SlideTime:
         setSlideTime(intValue, true);
         break;
+    case Routing::Target::Offset:
+        setOffset(intValue, true);
+        break;
     case Routing::Target::Rotate:
         setRotate(intValue, true);
         break;
@@ -23,7 +26,9 @@ void CurveTrack::writeRouted(Routing::Target target, int intValue, float floatVa
 void CurveTrack::clear() {
     setPlayMode(Types::PlayMode::Aligned);
     setFillMode(FillMode::None);
+    setMuteMode(MuteMode::LastValue);
     setSlideTime(0);
+    setOffset(0);
     setRotate(0);
     setShapeProbabilityBias(0);
     setGateProbabilityBias(0);
@@ -33,24 +38,26 @@ void CurveTrack::clear() {
     }
 }
 
-void CurveTrack::write(WriteContext &context) const {
-    auto &writer = context.writer;
+void CurveTrack::write(VersionedSerializedWriter &writer) const {
     writer.write(_playMode);
     writer.write(_fillMode);
+    writer.write(_muteMode);
     writer.write(_slideTime.base);
+    writer.write(_offset.base);
     writer.write(_rotate.base);
     writer.write(_shapeProbabilityBias.base);
     writer.write(_gateProbabilityBias.base);
-    writeArray(context, _sequences);
+    writeArray(writer, _sequences);
 }
 
-void CurveTrack::read(ReadContext &context) {
-    auto &reader = context.reader;
+void CurveTrack::read(VersionedSerializedReader &reader) {
     reader.read(_playMode);
     reader.read(_fillMode);
+    reader.read(_muteMode, ProjectVersion::Version22);
     reader.read(_slideTime.base, ProjectVersion::Version8);
+    reader.read(_offset.base, ProjectVersion::Version28);
     reader.read(_rotate.base);
     reader.read(_shapeProbabilityBias.base, ProjectVersion::Version15);
     reader.read(_gateProbabilityBias.base, ProjectVersion::Version15);
-    readArray(context, _sequences);
+    readArray(reader, _sequences);
 }

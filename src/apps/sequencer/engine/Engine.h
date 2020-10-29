@@ -15,6 +15,7 @@
 #include "MidiPort.h"
 #include "MidiLearn.h"
 #include "CvGateToMidiConverter.h"
+#include "UpdateReducer.h"
 
 #include "model/Model.h"
 
@@ -35,8 +36,9 @@ public:
     typedef Container<NoteTrackEngine, CurveTrackEngine, MidiCvTrackEngine> TrackEngineContainer;
     typedef std::array<TrackEngineContainer, CONFIG_TRACK_COUNT> TrackEngineContainerArray;
     typedef std::array<TrackEngine *, CONFIG_TRACK_COUNT> TrackEngineArray;
+    typedef std::array<UpdateReducer<os::time::ms(25)>, CONFIG_TRACK_COUNT> TrackUpdateReducerArray;
 
-    typedef std::function<bool(MidiPort port, const MidiMessage &message)> MidiReceiveHandler;
+    typedef std::function<bool(MidiPort port, uint8_t cable, const MidiMessage &message)> MidiReceiveHandler;
 
     typedef std::function<void(uint16_t vendorId, uint16_t productId)> UsbMidiConnectHandler;
     typedef std::function<void()> UsbMidiDisconnectHandler;
@@ -60,10 +62,17 @@ public:
     void init();
     void update();
 
-    // locking
+    // locking temporarily puts the engine in a state where completely skips all updates
+    // lock should only be hold for very short amounts of time
     void lock();
     void unlock();
-    bool isLocked();
+    bool isLocked() const { return _locked; }
+
+    // suspending temporarily puts the engine in a state where it only processes basic events but skips all updates
+    // suspending can be used during longer periods of time (e.g. file operations)
+    void suspend();
+    void resume();
+    bool isSuspended() const { return _suspended; }
 
     // clock control
     void togglePlay(bool shift = false);
@@ -136,7 +145,7 @@ public:
 
     bool trackEnginesConsistent() const;
 
-    bool sendMidi(MidiPort port, const MidiMessage &message);
+    bool sendMidi(MidiPort port, uint8_t cable, const MidiMessage &message);
     void setMidiReceiveHandler(MidiReceiveHandler handler) { _midiReceiveHandler = handler; }
     void setUsbMidiConnectHandler(UsbMidiConnectHandler handler) { _usbMidiConnectHandler = handler; }
     void setUsbMidiDisconnectHandler(UsbMidiDisconnectHandler handler) { _usbMidiDisconnectHandler = handler; }
@@ -162,7 +171,7 @@ private:
     void usbMidiDisconnect();
 
     void receiveMidi();
-    void receiveMidi(MidiPort port, const MidiMessage &message);
+    void receiveMidi(MidiPort port, uint8_t cable, const MidiMessage &message);
     void monitorMidi(const MidiMessage &message);
 
     void initClock();
@@ -186,6 +195,7 @@ private:
 
     TrackEngineContainerArray _trackEngineContainers;
     TrackEngineArray _trackEngines;
+    TrackUpdateReducerArray _trackUpdateReducers;
 
     MidiOutputEngine _midiOutputEngine;
 
@@ -199,8 +209,11 @@ private:
 
     // locking
     volatile uint32_t _requestLock = 0;
-    volatile uint32_t _requestUnlock = 0;
     volatile uint32_t _locked = 0;
+
+    // suspending
+    volatile uint32_t _requestSuspend = 0;
+    volatile uint32_t _suspended = 0;
 
     uint32_t _tick = 0;
 
@@ -208,6 +221,23 @@ private:
 
     // midi monitoring
     struct {
+        Types::MidiInputMode lastMidiInputMode;
+        MidiSourceConfig lastMidiInputSource;
+        Types::CvGateInput lastCvGateInput;
+
+        bool inputChanged(const Project &project) {
+            bool changed =
+                project.midiInputMode() != lastMidiInputMode ||
+                project.midiInputSource() != lastMidiInputSource ||
+                project.cvGateInput() != lastCvGateInput;
+            if (changed) {
+                lastMidiInputMode = project.midiInputMode();
+                lastMidiInputSource = project.midiInputSource();
+                lastCvGateInput = project.cvGateInput();
+            }
+            return changed;
+        }
+
         int8_t lastNote = -1;
         int8_t lastTrack = -1;
     } _midiMonitoring;

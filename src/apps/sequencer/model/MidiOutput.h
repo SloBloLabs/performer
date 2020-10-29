@@ -13,6 +13,7 @@
 #include <array>
 
 #include <cstdint>
+#include <cstring>
 
 class Project;
 class NoteSequence;
@@ -79,10 +80,21 @@ public:
         // event
 
         Event event() const { return _event; }
-        void setEvent(Event event) {
-            if (event != _event) {
+        void setEvent(Event event, bool force = false) {
+            if (force || event != _event) {
                 _event = ModelUtils::clampedEnum(event);
                 std::memset(&_data, 0, sizeof(_data));
+                switch (event) {
+                case Event::None:
+                    break;
+                case Event::Note:
+                    _data.note.velocitySource = VelocitySource(int(VelocitySource::FirstVelocity) + 100);
+                    break;
+                case Event::ControlChange:
+                    break;
+                case Event::Last:
+                    break;
+                }
             }
         }
 
@@ -201,8 +213,8 @@ public:
 
         void clear();
 
-        void write(WriteContext &context) const;
-        void read(ReadContext &context);
+        void write(VersionedSerializedWriter &writer) const;
+        void read(VersionedSerializedReader &reader);
 
         bool operator==(const Output &other) const;
         bool operator!=(const Output &other) const {
@@ -262,8 +274,8 @@ public:
 
     void clear();
 
-    void write(WriteContext &context) const;
-    void read(ReadContext &context);
+    void write(VersionedSerializedWriter &writer) const;
+    void read(VersionedSerializedReader &reader);
 
     bool isDirty() const { return _dirty; }
     void clearDirty() { _dirty = false; }

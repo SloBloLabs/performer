@@ -1,5 +1,100 @@
 # Changelog
 
+## v0.1.39 (26 October 2020)
+
+#### Improvements
+
+- Added support for Launchpad Mini MK3 and Launchpad X (#145)
+- Improved performance of sending MIDI over USB
+
+## v0.1.38 (23 October 2020)
+
+#### Fixes
+
+- Fixed MIDI output from monitoring during playback (#216)
+- Fixed hanging step monitoring when leaving note sequence edit page
+
+#### Improvements
+
+- Added _MIDI Input_ option to select MIDI input for monitoring/recording (#197)
+- Added _Monitor Mode_ option to set MIDI monitoring behavior
+- Added double tap to toggle gates on Launchpad controller (#232)
+
+## v0.1.37 (15 October 2020)
+
+#### Fixes
+
+- Output curve track CV when recording (#189, #218)
+- Fix duplicate function on note/curve sequence page (#238)
+- Jump to first row when switching between user scales
+- Fixed printing of route min/max values for certain targets
+
+#### Improvements
+
+- Added _Fill Muted_ option to note tracks (#161)
+- Added _Offset_ parameter to curve tracks (#221)
+- Allow setting swing on tempo page when holding `PERF` button
+- Added inverted loop conditions (#162)
+- Improved step shifting to only apply in first/last step range (#196)
+- Added 5ms delay to CV/Gate conversion to avoid capturing previous note (#194)
+- Allow programming slides/ties using pitch/modulation control when step recording (#228)
+- Added _Init Layer_ generator that resets the current layer to its default value (#230)
+- Allow holding `SHIFT` for fast editing of route min/max values
+
+## v0.1.36 (29 April 2020)
+
+#### Fixes
+
+- Update routings right after updating each track to allow its CV output to accurately modulate the following tracks (#167)
+
+#### Improvements
+
+- Added fill and mute functions to pattern mode on Launchpad (#173)
+- Added mutes to song slots (#178)
+- Added step monitoring on curve sequences (#186)
+- Added a `hwconfig` to support DAC8568A (in addition to the default DAC8568C)
+
+## v0.1.35 (20 Jan 2020)
+
+#### Fixes
+
+- Fix loading projects from before version 0.1.34 (#168)
+
+## v0.1.34 (19 Jan 2020)
+
+**PLEASE DO NOT USE THIS VERSION, IT CONTAINS A BUG PREVENTING IT FROM READING OLD PROJECT FILES!**
+
+#### Fixes
+
+- Fix inactive sequence when switching track mode (#131)
+
+#### Improvements
+
+- Added _Scale_ and _Root Note_ as routing targets (#166)
+- Expanded number of MIDI outputs to 16 (#159)
+- Expanded routable tempo range to 1..1000 (#158)
+- Generate MIDI output from track monitoring (#148)
+- Allow MIDI/CV tracks to consume MIDI events (#155)
+- Default MIDI output note event settings with velocity 100
+- Indicate active gates of a curve sequence on LEDs
+
+## v0.1.33 (12 Nov 2019)
+
+#### Fixes
+
+- Fixed handling of root note and transposing of note sequences (#147)
+
+#### Improvements
+
+- Add mute mode to curve tracks to allow defining the mute voltage state (#151)
+- Increased double tap time by 50% (#144)
+
+## v0.1.32 (9 Oct 2019)
+
+#### Fixes
+
+- Fix _Latch_ and _Sync_ modes on permanent _Performer_ page (#139)
+
 ## v0.1.31 (15 Aug 2019)
 
 #### Improvements

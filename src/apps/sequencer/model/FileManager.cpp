@@ -1,6 +1,10 @@
 #include "FileManager.h"
+#include "ProjectVersion.h"
 
 #include "core/utils/StringBuilder.h"
+#include "core/fs/FileSystem.h"
+#include "core/fs/FileWriter.h"
+#include "core/fs/FileReader.h"
 
 #include "os/os.h"
 
@@ -54,51 +58,180 @@ fs::Error FileManager::format() {
     return fs::volume().format();
 }
 
-fs::Error FileManager::saveProject(Project &project, int slot) {
-    return saveFile(FileType::Project, slot, [&] (const char *path) {
-        auto result = project.write(path);
+fs::Error FileManager::writeProject(Project &project, int slot) {
+    return writeFile(FileType::Project, slot, [&] (const char *path) {
+        auto result = writeProject(project, path);
         if (result == fs::OK) {
             project.setSlot(slot);
-            saveLastProject(slot);
+            writeLastProject(slot);
         }
         return result;
     });
 }
 
-fs::Error FileManager::loadProject(Project &project, int slot) {
-    return loadFile(FileType::Project, slot, [&] (const char *path) {
-        auto result = project.read(path);
+fs::Error FileManager::readProject(Project &project, int slot) {
+    return readFile(FileType::Project, slot, [&] (const char *path) {
+        auto result = readProject(project, path);
         if (result == fs::OK) {
             project.setSlot(slot);
-            saveLastProject(slot);
+            writeLastProject(slot);
         }
         return result;
     });
 }
 
-fs::Error FileManager::loadLastProject(Project &project) {
+fs::Error FileManager::readLastProject(Project &project) {
     int slot;
 
-    auto result = loadLastProject(slot);
+    auto result = readLastProject(slot);
 
     if (result == fs::OK && slot >= 0) {
-        result = loadProject(project, slot);
+        result = readProject(project, slot);
         project.setSlot(-1);
     }
 
     return result;
 }
 
-fs::Error FileManager::saveUserScale(const UserScale &userScale, int slot) {
-    return saveFile(FileType::UserScale, slot, [&] (const char *path) {
-        return userScale.write(path);
+fs::Error FileManager::writeUserScale(const UserScale &userScale, int slot) {
+    return writeFile(FileType::UserScale, slot, [&] (const char *path) {
+        return writeUserScale(userScale, path);
     });
 }
 
-fs::Error FileManager::loadUserScale(UserScale &userScale, int slot) {
-    return loadFile(FileType::UserScale, slot, [&] (const char *path) {
-        return userScale.read(path);
+fs::Error FileManager::readUserScale(UserScale &userScale, int slot) {
+    return readFile(FileType::UserScale, slot, [&] (const char *path) {
+        return readUserScale(userScale, path);
     });
+}
+
+fs::Error FileManager::writeProject(const Project &project, const char *path) {
+    fs::FileWriter fileWriter(path);
+    if (fileWriter.error() != fs::OK) {
+        return fileWriter.error();
+    }
+
+    FileHeader header(FileType::Project, 0, project.name());
+    fileWriter.write(&header, sizeof(header));
+
+    VersionedSerializedWriter writer(
+        [&fileWriter] (const void *data, size_t len) { fileWriter.write(data, len); },
+        ProjectVersion::Latest
+    );
+
+    project.write(writer);
+
+    return fileWriter.finish();
+}
+
+fs::Error FileManager::readProject(Project &project, const char *path) {
+    fs::FileReader fileReader(path);
+    if (fileReader.error() != fs::OK) {
+        return fileReader.error();
+    }
+
+    FileHeader header;
+    fileReader.read(&header, sizeof(header));
+
+    VersionedSerializedReader reader(
+        [&fileReader] (void *data, size_t len) { fileReader.read(data, len); },
+        ProjectVersion::Latest
+    );
+
+    bool success = project.read(reader);
+
+    auto error = fileReader.finish();
+    if (error == fs::OK && !success) {
+        error = fs::INVALID_CHECKSUM;
+    }
+
+    return error;
+}
+
+fs::Error FileManager::writeUserScale(const UserScale &userScale, const char *path) {
+    fs::FileWriter fileWriter(path);
+    if (fileWriter.error() != fs::OK) {
+        return fileWriter.error();
+    }
+
+    FileHeader header(FileType::UserScale, 0, userScale.name());
+    fileWriter.write(&header, sizeof(header));
+
+    VersionedSerializedWriter writer(
+        [&fileWriter] (const void *data, size_t len) { fileWriter.write(data, len); },
+        ProjectVersion::Latest
+    );
+
+    userScale.write(writer);
+
+    return fileWriter.finish();
+}
+
+fs::Error FileManager::readUserScale(UserScale &userScale, const char *path) {
+    fs::FileReader fileReader(path);
+    if (fileReader.error() != fs::OK) {
+        return fileReader.error();
+    }
+
+    FileHeader header;
+    fileReader.read(&header, sizeof(header));
+
+    VersionedSerializedReader reader(
+        [&fileReader] (void *data, size_t len) { fileReader.read(data, len); },
+        ProjectVersion::Latest
+    );
+
+    bool success = userScale.read(reader);
+
+    auto error = fileReader.finish();
+    if (error == fs::OK && !success) {
+        error = fs::INVALID_CHECKSUM;
+    }
+
+    return error;
+}
+
+fs::Error FileManager::writeSettings(const Settings &settings, const char *path) {
+    fs::FileWriter fileWriter(path);
+    if (fileWriter.error() != fs::OK) {
+        return fileWriter.error();
+    }
+
+    FileHeader header(FileType::Settings, 0, "SETTINGS");
+    fileWriter.write(&header, sizeof(header));
+
+    VersionedSerializedWriter writer(
+        [&fileWriter] (const void *data, size_t len) { fileWriter.write(data, len); },
+        Settings::Version
+    );
+
+    settings.write(writer);
+
+    return fileWriter.finish();
+}
+
+fs::Error FileManager::readSettings(Settings &settings, const char *path) {
+    fs::FileReader fileReader(path);
+    if (fileReader.error() != fs::OK) {
+        return fileReader.error();
+    }
+
+    FileHeader header;
+    fileReader.read(&header, sizeof(header));
+
+    VersionedSerializedReader reader(
+        [&fileReader] (void *data, size_t len) { fileReader.read(data, len); },
+        Settings::Version
+    );
+
+    bool success = settings.read(reader);
+
+    auto error = fileReader.finish();
+    if (error == fs::OK && !success) {
+        error = fs::INVALID_CHECKSUM;
+    }
+
+    return error;
 }
 
 void FileManager::slotInfo(FileType type, int slot, SlotInfo &info) {
@@ -164,7 +297,7 @@ void FileManager::processTask() {
 }
 
 
-fs::Error FileManager::saveFile(FileType type, int slot, std::function<fs::Error(const char *)> write) {
+fs::Error FileManager::writeFile(FileType type, int slot, std::function<fs::Error(const char *)> write) {
     const auto &info = fileTypeInfos[int(type)];
     if (!fs::exists(info.dir)) {
         fs::mkdir(info.dir);
@@ -181,7 +314,7 @@ fs::Error FileManager::saveFile(FileType type, int slot, std::function<fs::Error
     return result;
 }
 
-fs::Error FileManager::loadFile(FileType type, int slot, std::function<fs::Error(const char *)> read) {
+fs::Error FileManager::readFile(FileType type, int slot, std::function<fs::Error(const char *)> read) {
     const auto &info = fileTypeInfos[int(type)];
     if (!fs::exists(info.dir)) {
         fs::mkdir(info.dir);
@@ -195,7 +328,7 @@ fs::Error FileManager::loadFile(FileType type, int slot, std::function<fs::Error
     return result;
 }
 
-fs::Error FileManager::saveLastProject(int slot) {
+fs::Error FileManager::writeLastProject(int slot) {
     fs::FileWriter fileWriter("LAST.DAT");
     if (fileWriter.error() != fs::OK) {
         return fileWriter.error();
@@ -206,7 +339,7 @@ fs::Error FileManager::saveLastProject(int slot) {
     return fileWriter.finish();
 }
 
-fs::Error FileManager::loadLastProject(int &slot) {
+fs::Error FileManager::readLastProject(int &slot) {
     fs::FileReader fileReader("LAST.DAT");
     if (fileReader.error() != fs::OK) {
         return fileReader.error();

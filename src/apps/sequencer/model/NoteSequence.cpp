@@ -35,6 +35,44 @@ Types::LayerRange NoteSequence::layerRange(Layer layer) {
     return { 0, 0 };
 }
 
+int NoteSequence::layerDefaultValue(Layer layer)
+{
+    NoteSequence::Step step;
+
+    switch (layer) {
+    case Layer::Gate:
+        return step.gate();
+    case Layer::GateProbability:
+        return step.gateProbability();
+    case Layer::GateOffset:
+        return step.gateOffset();
+    case Layer::Slide:
+        return step.slide();
+    case Layer::Retrigger:
+        return step.retrigger();
+    case Layer::RetriggerProbability:
+        return step.retriggerProbability();
+    case Layer::Length:
+        return step.length();
+    case Layer::LengthVariationRange:
+        return step.lengthVariationRange();
+    case Layer::LengthVariationProbability:
+        return step.lengthVariationProbability();
+    case Layer::Note:
+        return step.note();
+    case Layer::NoteVariationRange:
+        return step.noteVariationRange();
+    case Layer::NoteVariationProbability:
+        return step.noteVariationProbability();
+    case Layer::Condition:
+        return int(step.condition());
+    case Layer::Last:
+        break;
+    }
+
+    return 0;
+}
+
 int NoteSequence::Step::layerValue(Layer layer) const {
     switch (layer) {
     case Layer::Gate:
@@ -134,29 +172,38 @@ void NoteSequence::Step::clear() {
     setCondition(Types::Condition::Off);
 }
 
-void NoteSequence::Step::write(WriteContext &context) const {
-    auto &writer = context.writer;
+void NoteSequence::Step::write(VersionedSerializedWriter &writer) const {
     writer.write(_data0.raw);
     writer.write(_data1.raw);
 }
 
-void NoteSequence::Step::read(ReadContext &context) {
-    auto &reader = context.reader;
-    reader.read(_data0.raw);
-    reader.read(_data1.raw);
-    if (reader.dataVersion() < ProjectVersion::Version5) {
-        _data1.raw &= 0x1f;
-    }
-    if (reader.dataVersion() < ProjectVersion::Version7) {
-        setGateOffset(0);
-    }
-    if (reader.dataVersion() < ProjectVersion::Version12) {
-        setCondition(Types::Condition(0));
+void NoteSequence::Step::read(VersionedSerializedReader &reader) {
+    if (reader.dataVersion() < ProjectVersion::Version27) {
+        reader.read(_data0.raw);
+        reader.readAs<uint16_t>(_data1.raw);
+        if (reader.dataVersion() < ProjectVersion::Version5) {
+            _data1.raw &= 0x1f;
+        }
+        if (reader.dataVersion() < ProjectVersion::Version7) {
+            setGateOffset(0);
+        }
+        if (reader.dataVersion() < ProjectVersion::Version12) {
+            setCondition(Types::Condition(0));
+        }
+    } else {
+        reader.read(_data0.raw);
+        reader.read(_data1.raw);
     }
 }
 
 void NoteSequence::writeRouted(Routing::Target target, int intValue, float floatValue) {
     switch (target) {
+    case Routing::Target::Scale:
+        setScale(intValue, true);
+        break;
+    case Routing::Target::RootNote:
+        setRootNote(intValue, true);
+        break;
     case Routing::Target::Divisor:
         setDivisor(intValue, true);
         break;
@@ -220,8 +267,12 @@ void NoteSequence::setNotes(std::initializer_list<int> notes) {
     }
 }
 
-void NoteSequence::shiftSteps(int direction) {
-    ModelUtils::shiftSteps(_steps, direction);
+void NoteSequence::shiftSteps(const std::bitset<CONFIG_STEP_COUNT> &selected, int direction) {
+    if (selected.any()) {
+        ModelUtils::shiftSteps(_steps, selected, direction);
+    } else {
+        ModelUtils::shiftSteps(_steps, firstStep(), lastStep(), direction);
+    }
 }
 
 void NoteSequence::duplicateSteps() {
@@ -229,23 +280,21 @@ void NoteSequence::duplicateSteps() {
     setLastStep(lastStep() + (lastStep() - firstStep() + 1));
 }
 
-void NoteSequence::write(WriteContext &context) const {
-    auto &writer = context.writer;
-    writer.write(_scale);
-    writer.write(_rootNote);
+void NoteSequence::write(VersionedSerializedWriter &writer) const {
+    writer.write(_scale.base);
+    writer.write(_rootNote.base);
     writer.write(_divisor.base);
     writer.write(_resetMeasure);
     writer.write(_runMode.base);
     writer.write(_firstStep.base);
     writer.write(_lastStep.base);
 
-    writeArray(context, _steps);
+    writeArray(writer, _steps);
 }
 
-void NoteSequence::read(ReadContext &context) {
-    auto &reader = context.reader;
-    reader.read(_scale);
-    reader.read(_rootNote);
+void NoteSequence::read(VersionedSerializedReader &reader) {
+    reader.read(_scale.base);
+    reader.read(_rootNote.base);
     if (reader.dataVersion() < ProjectVersion::Version10) {
         reader.readAs<uint8_t>(_divisor.base);
     } else {
@@ -256,5 +305,5 @@ void NoteSequence::read(ReadContext &context) {
     reader.read(_firstStep.base);
     reader.read(_lastStep.base);
 
-    readArray(context, _steps);
+    readArray(reader, _steps);
 }

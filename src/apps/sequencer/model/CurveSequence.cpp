@@ -25,6 +25,32 @@ Types::LayerRange CurveSequence::layerRange(Layer layer) {
     return { 0, 0 };
 }
 
+int CurveSequence::layerDefaultValue(Layer layer)
+{
+    CurveSequence::Step step;
+
+    switch (layer) {
+    case Layer::Shape:
+        return step.shape();
+    case Layer::ShapeVariation:
+        return step.shapeVariation();
+    case Layer::ShapeVariationProbability:
+        return step.shapeVariationProbability();
+    case Layer::Min:
+        return step.min();
+    case Layer::Max:
+        return step.max();
+    case Layer::Gate:
+        return step.gate();
+    case Layer::GateProbability:
+        return step.gateProbability();
+    case Layer::Last:
+        break;
+    }
+
+    return 0;
+}
+
 int CurveSequence::Step::layerValue(Layer layer) const {
     switch (layer) {
     case Layer::Shape:
@@ -88,14 +114,12 @@ void CurveSequence::Step::clear() {
     setGateProbability(GateProbability::Max);
 }
 
-void CurveSequence::Step::write(WriteContext &context) const {
-    auto &writer = context.writer;
+void CurveSequence::Step::write(VersionedSerializedWriter &writer) const {
     writer.write(_data0);
     writer.write(_data1);
 }
 
-void CurveSequence::Step::read(ReadContext &context) {
-    auto &reader = context.reader;
+void CurveSequence::Step::read(VersionedSerializedReader &reader) {
     if (reader.dataVersion() < ProjectVersion::Version15) {
         uint8_t shape, min, max;
         reader.read(shape);
@@ -171,8 +195,12 @@ void CurveSequence::setShapes(std::initializer_list<int> shapes) {
     }
 }
 
-void CurveSequence::shiftSteps(int direction) {
-    ModelUtils::shiftSteps(_steps, direction);
+void CurveSequence::shiftSteps(const std::bitset<CONFIG_STEP_COUNT> &selected, int direction) {
+    if (selected.any()) {
+        ModelUtils::shiftSteps(_steps, selected, direction);
+    } else {
+        ModelUtils::shiftSteps(_steps, firstStep(), lastStep(), direction);
+    }
 }
 
 void CurveSequence::duplicateSteps() {
@@ -180,8 +208,7 @@ void CurveSequence::duplicateSteps() {
     setLastStep(lastStep() + (lastStep() - firstStep() + 1));
 }
 
-void CurveSequence::write(WriteContext &context) const {
-    auto &writer = context.writer;
+void CurveSequence::write(VersionedSerializedWriter &writer) const {
     writer.write(_range);
     writer.write(_divisor.base);
     writer.write(_resetMeasure);
@@ -189,11 +216,10 @@ void CurveSequence::write(WriteContext &context) const {
     writer.write(_firstStep.base);
     writer.write(_lastStep.base);
 
-    writeArray(context, _steps);
+    writeArray(writer, _steps);
 }
 
-void CurveSequence::read(ReadContext &context) {
-    auto &reader = context.reader;
+void CurveSequence::read(VersionedSerializedReader &reader) {
     reader.read(_range);
     if (reader.dataVersion() < ProjectVersion::Version10) {
         reader.readAs<uint8_t>(_divisor.base);
@@ -205,5 +231,5 @@ void CurveSequence::read(ReadContext &context) {
     reader.read(_firstStep.base);
     reader.read(_lastStep.base);
 
-    readArray(context, _steps);
+    readArray(reader, _steps);
 }

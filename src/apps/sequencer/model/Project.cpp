@@ -1,9 +1,6 @@
 #include "Project.h"
 #include "ProjectVersion.h"
 
-#include "core/fs/FileWriter.h"
-#include "core/fs/FileReader.h"
-
 Project::Project() :
     _playState(*this),
     _routing(*this)
@@ -37,7 +34,9 @@ void Project::clear() {
     setSyncMeasure(1);
     setScale(0);
     setRootNote(0);
+    setMonitorMode(Types::MonitorMode::Always);
     setRecordMode(Types::RecordMode::Overdub);
+    setMidiInputMode(Types::MidiInputMode::All);
     setCvGateInput(Types::CvGateInput::Off);
     setCurveCvInput(Types::CurveCvInput::Off);
 
@@ -99,31 +98,33 @@ void Project::setTrackMode(int trackIndex, Track::TrackMode trackMode) {
     _observable.notify(TrackModeChanged);
 }
 
-void Project::write(WriteContext &context) const {
-    auto &writer = context.writer;
+void Project::write(VersionedSerializedWriter &writer) const {
     writer.write(_name, NameLength + 1);
     writer.write(_tempo.base);
     writer.write(_swing.base);
-    _timeSignature.write(context);
+    _timeSignature.write(writer);
     writer.write(_syncMeasure);
     writer.write(_scale);
     writer.write(_rootNote);
+    writer.write(_monitorMode);
     writer.write(_recordMode);
+    writer.write(_midiInputMode);
+    _midiInputSource.write(writer);
     writer.write(_cvGateInput);
     writer.write(_curveCvInput);
 
-    _clockSetup.write(context);
+    _clockSetup.write(writer);
 
-    writeArray(context, _tracks);
-    writeArray(context, _cvOutputTracks);
-    writeArray(context, _gateOutputTracks);
+    writeArray(writer, _tracks);
+    writeArray(writer, _cvOutputTracks);
+    writeArray(writer, _gateOutputTracks);
 
-    _song.write(context);
-    _playState.write(context);
-    _routing.write(context);
-    _midiOutput.write(context);
+    _song.write(writer);
+    _playState.write(writer);
+    _routing.write(writer);
+    _midiOutput.write(writer);
 
-    writeArray(context, UserScale::userScales);
+    writeArray(writer, UserScale::userScales);
 
     writer.write(_selectedTrackIndex);
     writer.write(_selectedPatternIndex);
@@ -131,36 +132,40 @@ void Project::write(WriteContext &context) const {
     writer.writeHash();
 }
 
-bool Project::read(ReadContext &context) {
+bool Project::read(VersionedSerializedReader &reader) {
     clear();
 
-    auto &reader = context.reader;
     reader.read(_name, NameLength + 1, ProjectVersion::Version5);
     reader.read(_tempo.base);
     reader.read(_swing.base);
     if (reader.dataVersion() >= ProjectVersion::Version18) {
-        _timeSignature.read(context);
+        _timeSignature.read(reader);
     }
     reader.read(_syncMeasure);
     reader.read(_scale);
     reader.read(_rootNote);
+    reader.read(_monitorMode, ProjectVersion::Version30);
     reader.read(_recordMode);
+    if (reader.dataVersion() >= ProjectVersion::Version29) {
+        reader.read(_midiInputMode);
+        _midiInputSource.read(reader);
+    }
     reader.read(_cvGateInput, ProjectVersion::Version6);
     reader.read(_curveCvInput, ProjectVersion::Version11);
 
-    _clockSetup.read(context);
+    _clockSetup.read(reader);
 
-    readArray(context, _tracks);
-    readArray(context, _cvOutputTracks);
-    readArray(context, _gateOutputTracks);
+    readArray(reader, _tracks);
+    readArray(reader, _cvOutputTracks);
+    readArray(reader, _gateOutputTracks);
 
-    _song.read(context);
-    _playState.read(context);
-    _routing.read(context);
-    _midiOutput.read(context);
+    _song.read(reader);
+    _playState.read(reader);
+    _routing.read(reader);
+    _midiOutput.read(reader);
 
     if (reader.dataVersion() >= ProjectVersion::Version5) {
-        readArray(context, UserScale::userScales);
+        readArray(reader, UserScale::userScales);
     }
 
     reader.read(_selectedTrackIndex);
@@ -174,54 +179,4 @@ bool Project::read(ReadContext &context) {
     }
 
     return success;
-}
-
-fs::Error Project::write(const char *path) const {
-    fs::FileWriter fileWriter(path);
-    if (fileWriter.error() != fs::OK) {
-        return fileWriter.error();
-    }
-
-    FileHeader header(FileType::Project, 0, _name);
-    fileWriter.write(&header, sizeof(header));
-
-    VersionedSerializedWriter writer(
-        [&fileWriter] (const void *data, size_t len) { fileWriter.write(data, len); },
-        ProjectVersion::Latest
-    );
-
-    WriteContext context = { writer };
-    write(context);
-
-    return fileWriter.finish();
-}
-
-fs::Error Project::read(const char *path) {
-    fs::FileReader fileReader(path);
-    if (fileReader.error() != fs::OK) {
-        return fileReader.error();
-    }
-
-    FileHeader header;
-    fileReader.read(&header, sizeof(header));
-
-    VersionedSerializedReader reader(
-        [&fileReader] (void *data, size_t len) { fileReader.read(data, len); },
-        ProjectVersion::Latest
-    );
-
-    ReadContext context = { reader };
-    bool success = read(context);
-
-    // TODO at some point we should remove this because name is also stored with data as of version 5
-    if (success) {
-        header.readName(_name, sizeof(_name));
-    }
-
-    auto error = fileReader.finish();
-    if (error == fs::OK && !success) {
-        error = fs::INVALID_CHECKSUM;
-    }
-
-    return error;
 }

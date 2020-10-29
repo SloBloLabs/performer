@@ -53,6 +53,7 @@ public:
         SlideTime = TrackFirst,
         Octave,
         Transpose,
+        Offset,
         Rotate,
         GateProbabilityBias,
         RetriggerProbabilityBias,
@@ -63,11 +64,13 @@ public:
 
         // Sequence targets
         SequenceFirst,
-        Divisor = SequenceFirst,
-        RunMode,
-        FirstStep,
+        FirstStep = SequenceFirst,
         LastStep,
-        SequenceLast = LastStep,
+        RunMode,
+        Divisor,
+        Scale,
+        RootNote,
+        SequenceLast = RootNote,
 
         Last,
     };
@@ -91,6 +94,7 @@ public:
         case Target::SlideTime:                 return "Slide Time";
         case Target::Octave:                    return "Octave";
         case Target::Transpose:                 return "Transpose";
+        case Target::Offset:                    return "Offset";
         case Target::Rotate:                    return "Rotate";
         case Target::GateProbabilityBias:       return "Gate P. Bias";
         case Target::RetriggerProbabilityBias:  return "Retrig P. Bias";
@@ -98,10 +102,12 @@ public:
         case Target::NoteProbabilityBias:       return "Note P. Bias";
         case Target::ShapeProbabilityBias:      return "Shape P. Bias";
 
-        case Target::Divisor:                   return "Divisor";
-        case Target::RunMode:                   return "Run Mode";
         case Target::FirstStep:                 return "First Step";
         case Target::LastStep:                  return "Last Step";
+        case Target::RunMode:                   return "Run Mode";
+        case Target::Divisor:                   return "Divisor";
+        case Target::Scale:                     return "Scale";
+        case Target::RootNote:                  return "Root Note";
 
         case Target::Last:                      break;
         }
@@ -136,6 +142,11 @@ public:
         case Target::TapTempo:                  return 21;
 
         case Target::ShapeProbabilityBias:      return 22;
+
+        case Target::Scale:                     return 23;
+        case Target::RootNote:                  return 24;
+
+        case Target::Offset:                    return 25;
 
         case Target::Last:                      break;
         }
@@ -236,8 +247,8 @@ public:
 
         void clear();
 
-        void write(WriteContext &context) const;
-        void read(ReadContext &context);
+        void write(VersionedSerializedWriter &writer) const;
+        void read(VersionedSerializedReader &reader);
 
         bool operator==(const CvSource &other) const;
 
@@ -344,8 +355,8 @@ public:
 
         void clear();
 
-        void write(WriteContext &context) const;
-        void read(ReadContext &context);
+        void write(VersionedSerializedWriter &writer) const;
+        void read(VersionedSerializedReader &reader);
 
         bool operator==(const MidiSource &other) const;
 
@@ -416,7 +427,7 @@ public:
         }
 
         void editMin(int value, bool shift) {
-            setMin(min() + value * targetValueStep(_target));
+            setMin(min() + value * targetValueStep(_target, shift));
         }
 
         void printMin(StringBuilder &str) const {
@@ -434,7 +445,7 @@ public:
         }
 
         void editMax(int value, bool shift) {
-            setMax(max() + value * targetValueStep(_target));
+            setMax(max() + value * targetValueStep(_target, shift));
         }
 
         void printMax(StringBuilder &str) const {
@@ -472,8 +483,8 @@ public:
 
         bool active() const { return _target != Target::None; }
 
-        void write(WriteContext &context) const;
-        void read(ReadContext &context);
+        void write(VersionedSerializedWriter &writer) const;
+        void read(VersionedSerializedReader &reader);
 
         bool operator==(const Route &other) const;
         bool operator!=(const Route &other) const {
@@ -520,8 +531,8 @@ public:
 
     void writeTarget(Target target, uint8_t tracks, float normalized);
 
-    void write(WriteContext &context) const;
-    void read(ReadContext &context);
+    void write(VersionedSerializedWriter &writer) const;
+    void read(VersionedSerializedReader &reader);
 
     bool isDirty() const { return _dirty; }
     void clearDirty() { _dirty = false; }
@@ -535,7 +546,7 @@ private:
     static float normalizeTargetValue(Target target, float value);
     static float denormalizeTargetValue(Target target, float normalized);
     static std::pair<float, float> normalizedDefaultRange(Target target);
-    static float targetValueStep(Target target);
+    static float targetValueStep(Target target, bool shift);
     static void printTargetValue(Target target, float normalized, StringBuilder &str);
 
     Project &_project;

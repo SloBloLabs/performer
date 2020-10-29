@@ -35,6 +35,25 @@ public:
         return nullptr;
     }
 
+    enum class MuteMode : uint8_t {
+        LastValue,
+        Zero,
+        Min,
+        Max,
+        Last
+    };
+
+    static const char *muteModeName(MuteMode muteMode) {
+        switch (muteMode) {
+        case MuteMode::LastValue:   return "Last Value";
+        case MuteMode::Zero:        return "0V";
+        case MuteMode::Min:         return "Min";
+        case MuteMode::Max:         return "Max";
+        case MuteMode::Last:        break;
+        }
+        return nullptr;
+    }
+
     //----------------------------------------
     // Properties
     //----------------------------------------
@@ -69,6 +88,21 @@ public:
         str(fillModeName(fillMode()));
     }
 
+    // muteMode
+
+    MuteMode muteMode() const { return _muteMode; }
+    void setMuteMode(MuteMode muteMode) {
+        _muteMode = ModelUtils::clampedEnum(muteMode);
+    }
+
+    void editMuteMode(int value, bool shift) {
+        setMuteMode(ModelUtils::adjustedEnum(muteMode(), value));
+    }
+
+    void printMuteMode(StringBuilder &str) const {
+        str(muteModeName(muteMode()));
+    }
+
     // slideTime
 
     int slideTime() const { return _slideTime.get(isRouted(Routing::Target::SlideTime)); }
@@ -85,6 +119,25 @@ public:
     void printSlideTime(StringBuilder &str) const {
         printRouted(str, Routing::Target::SlideTime);
         str("%d%%", slideTime());
+    }
+
+    // offset
+
+    int offset() const { return _offset.get(isRouted(Routing::Target::Offset)); }
+    float offsetVolts() const { return offset() * 0.01f; }
+    void setOffset(int offset, bool routed = false) {
+        _offset.set(clamp(offset, -500, 500), routed);
+    }
+
+    void editOffset(int value, bool shift) {
+        if (!isRouted(Routing::Target::Offset)) {
+            setOffset(offset() + value * (shift ? 100 : 1));
+        }
+    }
+
+    void printOffset(StringBuilder &str) const {
+        printRouted(str, Routing::Target::Offset);
+        str("%+.2fV", offsetVolts());
     }
 
     // rotate
@@ -165,8 +218,8 @@ public:
 
     void clear();
 
-    void write(WriteContext &context) const;
-    void read(ReadContext &context);
+    void write(VersionedSerializedWriter &writer) const;
+    void read(VersionedSerializedReader &reader);
 
 private:
     void setTrackIndex(int trackIndex) {
@@ -179,7 +232,9 @@ private:
     int8_t _trackIndex = -1;
     Types::PlayMode _playMode;
     FillMode _fillMode;
+    MuteMode _muteMode;
     Routable<uint8_t> _slideTime;
+    Routable<int16_t> _offset;
     Routable<int8_t> _rotate;
     Routable<int8_t> _shapeProbabilityBias;
     Routable<int8_t> _gateProbabilityBias;

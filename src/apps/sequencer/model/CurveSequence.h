@@ -12,6 +12,7 @@
 #include "core/utils/StringBuilder.h"
 
 #include <array>
+#include <bitset>
 #include <cstdint>
 #include <initializer_list>
 
@@ -54,6 +55,7 @@ public:
     }
 
     static Types::LayerRange layerRange(Layer layer);
+    static int layerDefaultValue(Layer layer);
 
     class Step {
     public:
@@ -133,8 +135,8 @@ public:
 
         void clear();
 
-        void write(WriteContext &context) const;
-        void read(ReadContext &context);
+        void write(VersionedSerializedWriter &writer) const;
+        void read(VersionedSerializedReader &reader);
 
         bool operator==(const Step &other) const {
             return _data0.raw == other._data0.raw;
@@ -325,12 +327,12 @@ public:
 
     void setShapes(std::initializer_list<int> shapes);
 
-    void shiftSteps(int direction);
+    void shiftSteps(const std::bitset<CONFIG_STEP_COUNT> &selected, int direction);
 
     void duplicateSteps();
 
-    void write(WriteContext &context) const;
-    void read(ReadContext &context);
+    void write(VersionedSerializedWriter &writer) const;
+    void read(VersionedSerializedReader &reader);
 
 private:
     void setTrackIndex(int trackIndex) { _trackIndex = trackIndex; }

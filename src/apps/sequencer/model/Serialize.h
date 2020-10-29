@@ -1,8 +1,5 @@
 #pragma once
 
-#include "core/fs/FileSystem.h"
-#include "core/fs/FileWriter.h"
-#include "core/fs/FileReader.h"
 #include "core/io/VersionedSerializedWriter.h"
 #include "core/io/VersionedSerializedReader.h"
 
@@ -11,38 +8,30 @@
 #include <cstdlib>
 #include <cstdint>
 
-struct WriteContext {
-    VersionedSerializedWriter &writer;
-};
-
-struct ReadContext {
-    VersionedSerializedReader &reader;
-};
-
 template<typename T, size_t N>
-static void writeArray(WriteContext &context, const std::array<T, N> &array) {
+static void writeArray(VersionedSerializedWriter &writer, const std::array<T, N> &array) {
     for (size_t i = 0; i < array.size(); ++i) {
-        array[i].write(context);
+        array[i].write(writer);
     }
 }
 
 template<size_t N>
-static void writeArray(WriteContext &context, const std::array<uint8_t, N> &array) {
+static void writeArray(VersionedSerializedWriter &writer, const std::array<uint8_t, N> &array) {
     for (size_t i = 0; i < array.size(); ++i) {
-        context.writer.write(array[i]);
+        writer.write(array[i]);
     }
 }
 
 template<typename T, size_t N>
-static void readArray(ReadContext &context, std::array<T, N> &array, size_t size = N) {
+static void readArray(VersionedSerializedReader &reader, std::array<T, N> &array, size_t size = N) {
     for (size_t i = 0; i < size; ++i) {
-        array[i].read(context);
+        array[i].read(reader);
     }
 }
 
 template<size_t N>
-static void readArray(ReadContext &context, std::array<uint8_t, N> &array, size_t size = N) {
+static void readArray(VersionedSerializedReader &reader, std::array<uint8_t, N> &array, size_t size = N) {
     for (size_t i = 0; i < size; ++i) {
-        context.reader.read(array[i]);
+        reader.read(array[i]);
     }
 }

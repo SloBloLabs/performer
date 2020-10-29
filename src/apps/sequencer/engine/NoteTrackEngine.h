@@ -5,6 +5,7 @@
 #include "SortedQueue.h"
 #include "Groove.h"
 #include "RecordHistory.h"
+#include "StepRecorder.h"
 
 class NoteTrackEngine : public TrackEngine {
 public:
@@ -19,12 +20,13 @@ public:
 
     virtual void reset() override;
     virtual void restart() override;
-    virtual void tick(uint32_t tick) override;
+    virtual TickResult tick(uint32_t tick) override;
     virtual void update(float dt) override;
 
     virtual void changePattern() override;
 
     virtual void monitorMidi(uint32_t tick, const MidiMessage &message) override;
+    virtual void clearMidiMonitoring() override;
 
     virtual const TrackLinkData *linkData() const override { return &_linkData; }
 
@@ -39,7 +41,7 @@ public:
     bool isActiveSequence(const NoteSequence &sequence) const { return &sequence == _sequence; }
 
     int currentStep() const { return _currentStep; }
-    int currentRecordStep() const { return _currentRecordStep; }
+    int currentRecordStep() const { return _stepRecorder.stepIndex(); }
 
     void setMonitorStep(int index);
 
@@ -47,6 +49,10 @@ private:
     void triggerStep(uint32_t tick, uint32_t divisor);
     void recordStep(uint32_t tick, uint32_t divisor);
     int noteFromMidiNote(uint8_t midiNote) const;
+
+    bool fill() const {
+        return (_noteTrack.fillMuted() || !TrackEngine::mute()) ? TrackEngine::fill() : false;
+    }
 
     NoteTrack &_noteTrack;
 
@@ -64,7 +70,7 @@ private:
 
     RecordHistory _recordHistory;
     bool _monitorOverrideActive = false;
-    int _currentRecordStep = -1;
+    StepRecorder _stepRecorder;
 
     bool _activity;
     bool _gateOutput;

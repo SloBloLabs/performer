@@ -6,7 +6,6 @@
 
 #include "model/FileManager.h"
 
-#include "core/fs/FileSystem.h"
 #include "core/utils/StringBuilder.h"
 
 enum class ContextAction {
@@ -130,10 +129,10 @@ bool ProjectPage::contextActionEnabled(int index) const {
 void ProjectPage::initProject() {
     _manager.pages().confirmation.show("ARE YOU SURE?", [this] (bool result) {
         if (result) {
-            _engine.lock();
+            _engine.suspend();
             _project.clear();
             showMessage("PROJECT INITIALIZED");
-            _engine.unlock();
+            _engine.resume();
         }
     });
 }
@@ -180,11 +179,11 @@ void ProjectPage::initRoute() {
 }
 
 void ProjectPage::saveProjectToSlot(int slot) {
-    _engine.lock();
+    _engine.suspend();
     _manager.pages().busy.show("SAVING PROJECT ...");
 
     FileManager::task([this, slot] () {
-        return FileManager::saveProject(_project, slot);
+        return FileManager::writeProject(_project, slot);
     }, [this] (fs::Error result) {
         if (result == fs::OK) {
             showMessage("PROJECT SAVED");
@@ -193,17 +192,17 @@ void ProjectPage::saveProjectToSlot(int slot) {
         }
         // TODO lock ui mutex
         _manager.pages().busy.close();
-        _engine.unlock();
+        _engine.resume();
     });
 }
 
 void ProjectPage::loadProjectFromSlot(int slot) {
-    _engine.lock();
+    _engine.suspend();
     _manager.pages().busy.show("LOADING PROJECT ...");
 
     FileManager::task([this, slot] () {
         // TODO this is running in file manager thread but model notification affect ui
-        return FileManager::loadProject(_project, slot);
+        return FileManager::readProject(_project, slot);
     }, [this] (fs::Error result) {
         if (result == fs::OK) {
             showMessage("PROJECT LOADED");
@@ -214,6 +213,6 @@ void ProjectPage::loadProjectFromSlot(int slot) {
         }
         // TODO lock ui mutex
         _manager.pages().busy.close();
-        _engine.unlock();
+        _engine.resume();
     });
 }

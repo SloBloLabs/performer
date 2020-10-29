@@ -55,7 +55,7 @@ void CurveTrackEngine::restart() {
     _currentStepFraction = 0.f;
 }
 
-void CurveTrackEngine::tick(uint32_t tick) {
+TrackEngine::TickResult CurveTrackEngine::tick(uint32_t tick) {
     ASSERT(_sequence != nullptr, "invalid sequence");
     const auto &sequence = *_sequence;
     const auto *linkData = _linkedTrackEngine ? _linkedTrackEngine->linkData() : nullptr;
@@ -106,32 +106,50 @@ void CurveTrackEngine::tick(uint32_t tick) {
         _linkData.sequenceState = &_sequenceState;
     }
 
+    TickResult result = TickResult::NoUpdate;
+
     while (!_gateQueue.empty() && tick >= _gateQueue.front().tick) {
+        result |= TickResult::GateUpdate;
         _activity = _gateQueue.front().gate;
         _gateOutput = (!mute() || fill()) && _activity;
         _gateQueue.pop();
 
         _engine.midiOutputEngine().sendGate(_track.trackIndex(), _gateOutput);
     }
+
+    return result;
 }
 
 void CurveTrackEngine::update(float dt) {
-    // override due to recording
-    if (isRecording()) {
+    bool running = _engine.state().running();
+    bool recording = isRecording();
+
+    const auto &sequence = *_sequence;
+    const auto &range = Types::voltageRangeInfo(_sequence->range());
+
+    // override due to monitoring or recording
+    if (!running && !recording && _monitorStepIndex >= 0) {
+        // step monitoring (first priority)
+        const auto &step = sequence.step(_monitorStepIndex);
+        float min = float(step.min()) / CurveSequence::Min::Max;
+        float max = float(step.max()) / CurveSequence::Max::Max;
+        _cvOutput = _cvOutputTarget = range.denormalize(_monitorStepLevel == MonitorLevel::Min ? min : max);
+        // pass through to midi engine
+        auto &midiOutputEngine = _engine.midiOutputEngine();
+        midiOutputEngine.sendCv(_track.trackIndex(), _cvOutput);
+    } else if (recording) {
         updateRecordValue();
-        const auto &range = Types::voltageRangeInfo(_sequence->range());
-        _cvOutputTarget = range.denormalize(_recordValue);
-        _cvOutput = _cvOutputTarget;
+        _cvOutput = _cvOutputTarget = range.denormalize(_recordValue);
     }
 
-    if (!mute()) {
-        if (_curveTrack.slideTime() > 0) {
-            float factor = 1.f - 0.01f * _curveTrack.slideTime();
-            factor = 500.f * factor * factor;
-            _cvOutput += (_cvOutputTarget - _cvOutput) * std::min(1.f, dt * factor);
-        } else {
-            _cvOutput = _cvOutputTarget;
-        }
+    float offset = mute() ? 0.f : _curveTrack.offsetVolts();
+
+    if (_curveTrack.slideTime() > 0) {
+        float factor = 1.f - 0.01f * _curveTrack.slideTime();
+        factor = 500.f * factor * factor;
+        _cvOutput += (_cvOutputTarget + offset - _cvOutput) * std::min(1.f, dt * factor);
+    } else {
+        _cvOutput = _cvOutputTarget + offset;
     }
 }
 
@@ -171,21 +189,40 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         return;
     }
 
-    bool fillVariation = _fillMode == CurveTrack::FillMode::Variation;
-    bool fillNextPattern = _fillMode == CurveTrack::FillMode::NextPattern;
-    bool fillInvert = _fillMode == CurveTrack::FillMode::Invert;
-
     const auto &sequence = *_sequence;
     const auto &range = Types::voltageRangeInfo(sequence.range());
 
-    const auto &evalSequence = fillNextPattern ? *_fillSequence : *_sequence;
-    const auto &step = evalSequence.step(_currentStep);
+    if (mute()) {
+        switch (_curveTrack.muteMode()) {
+        case CurveTrack::MuteMode::LastValue:
+            // keep value
+            break;
+        case CurveTrack::MuteMode::Zero:
+            _cvOutputTarget = 0.f;
+            break;
+        case CurveTrack::MuteMode::Min:
+            _cvOutputTarget = range.lo;
+            break;
+        case CurveTrack::MuteMode::Max:
+            _cvOutputTarget = range.hi;
+            break;
+        case CurveTrack::MuteMode::Last:
+            break;
+        }
+    } else {
+        bool fillVariation = _fillMode == CurveTrack::FillMode::Variation;
+        bool fillNextPattern = _fillMode == CurveTrack::FillMode::NextPattern;
+        bool fillInvert = _fillMode == CurveTrack::FillMode::Invert;
 
-    _currentStepFraction = float(relativeTick % divisor) / divisor;
+        const auto &evalSequence = fillNextPattern ? *_fillSequence : *_sequence;
+        const auto &step = evalSequence.step(_currentStep);
 
-    float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, _currentStepFraction);
-    value = range.denormalize(value);
-    _cvOutputTarget = value;
+        _currentStepFraction = float(relativeTick % divisor) / divisor;
+
+        float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, _currentStepFraction);
+        value = range.denormalize(value);
+        _cvOutputTarget = value;
+    }
 
     _engine.midiOutputEngine().sendCv(_track.trackIndex(), _cvOutputTarget);
 }

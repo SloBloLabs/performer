@@ -79,6 +79,9 @@ void UserScalePage::setSelectedIndex(int index) {
     _selectedIndex = index;
     _userScale = &UserScale::userScales[index];
     _listModel.setUserScale(*_userScale);
+
+    setSelectedRow(0);
+    setEdit(false);
 }
 
 void UserScalePage::contextShow() {
@@ -168,11 +171,11 @@ void UserScalePage::saveUserScale() {
 }
 
 void UserScalePage::saveUserScaleToSlot(int slot) {
-    _engine.lock();
+    _engine.suspend();
     _manager.pages().busy.show("SAVING USER SCALE ...");
 
     FileManager::task([this, slot] () {
-        return FileManager::saveUserScale(*_userScale, slot);
+        return FileManager::writeUserScale(*_userScale, slot);
     }, [this] (fs::Error result) {
         if (result == fs::OK) {
             showMessage("USER SCALE SAVED");
@@ -181,16 +184,16 @@ void UserScalePage::saveUserScaleToSlot(int slot) {
         }
         // TODO lock ui mutex
         _manager.pages().busy.close();
-        _engine.unlock();
+        _engine.resume();
     });
 }
 
 void UserScalePage::loadUserScaleFromSlot(int slot) {
-    _engine.lock();
+    _engine.suspend();
     _manager.pages().busy.show("LOADING USER SCALE ...");
 
     FileManager::task([this, slot] () {
-        return FileManager::loadUserScale(*_userScale, slot);
+        return FileManager::readUserScale(*_userScale, slot);
     }, [this] (fs::Error result) {
         if (result == fs::OK) {
             showMessage("USER SCALE LOADED");
@@ -201,6 +204,6 @@ void UserScalePage::loadUserScaleFromSlot(int slot) {
         }
         // TODO lock ui mutex
         _manager.pages().busy.close();
-        _engine.unlock();
+        _engine.resume();
     });
 }
