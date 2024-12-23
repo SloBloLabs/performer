@@ -21,7 +21,7 @@ public:
 private:
     void setTrack(Track &track);
 
-    void contextShow();
+    void contextShow(bool doubleClick = false);
     void contextAction(int index);
     bool contextActionEnabled(int index) const;
 
@@ -34,4 +34,10 @@ private:
     NoteTrackListModel _noteTrackListModel;
     CurveTrackListModel _curveTrackListModel;
     MidiCvTrackListModel _midiCvTrackListModel;
+
+    Track *_track;
+    
+    NoteTrack *_noteTrack;
+    CurveTrack *_curveTrack;
+    MidiCvTrack *_midiCvTrack;
 };

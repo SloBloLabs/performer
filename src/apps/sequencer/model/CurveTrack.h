@@ -1,12 +1,16 @@
 #pragma once
 
+#include "BaseTrack.h"
+#include "BaseTrackPatternFollow.h"
 #include "Config.h"
 #include "Types.h"
 #include "CurveSequence.h"
 #include "Serialize.h"
 #include "Routing.h"
+#include "FileDefs.h"
+#include "core/utils/StringUtils.h"
 
-class CurveTrack {
+class CurveTrack : public BaseTrack, public BaseTrackPatternFollow {
 public:
     //----------------------------------------
     // Types
@@ -201,6 +205,10 @@ public:
 
     const CurveSequence &sequence(int index) const { return _sequences[index]; }
           CurveSequence &sequence(int index)       { return _sequences[index]; }
+
+    void setSequence(int index, CurveSequence seq) {
+        _sequences[index] = seq;
+    }
 
     //----------------------------------------
     // Routing

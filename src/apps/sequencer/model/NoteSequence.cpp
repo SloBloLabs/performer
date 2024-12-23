@@ -13,9 +13,9 @@ Types::LayerRange NoteSequence::layerRange(Layer layer) {
         return { 0, 1 };
     case Layer::Slide:
         return { 0, 1 };
-    case Layer::GateOffset:
-        // TODO: allow negative gate delay in the future
-        return { 0, GateOffset::Max };
+    case Layer::BypassScale:
+        return {0 ,1 };
+    CASE(GateOffset)
     CASE(GateProbability)
     CASE(Retrigger)
     CASE(RetriggerProbability)
@@ -26,6 +26,8 @@ Types::LayerRange NoteSequence::layerRange(Layer layer) {
     CASE(NoteVariationRange)
     CASE(NoteVariationProbability)
     CASE(Condition)
+    CASE(StageRepeats)
+    CASE(StageRepeatsMode)
     case Layer::Last:
         break;
     }
@@ -48,6 +50,8 @@ int NoteSequence::layerDefaultValue(Layer layer)
         return step.gateOffset();
     case Layer::Slide:
         return step.slide();
+    case Layer::BypassScale:
+        return step.bypassScale();
     case Layer::Retrigger:
         return step.retrigger();
     case Layer::RetriggerProbability:
@@ -66,6 +70,10 @@ int NoteSequence::layerDefaultValue(Layer layer)
         return step.noteVariationProbability();
     case Layer::Condition:
         return int(step.condition());
+    case Layer::StageRepeats:
+        return step.stageRepeats();
+    case Layer::StageRepeatsMode:
+        return step.stageRepeatMode();
     case Layer::Last:
         break;
     }
@@ -79,6 +87,8 @@ int NoteSequence::Step::layerValue(Layer layer) const {
         return gate() ? 1 : 0;
     case Layer::Slide:
         return slide() ? 1 : 0;
+    case Layer::BypassScale:
+        return bypassScale() ? 1 : 0;
     case Layer::GateProbability:
         return gateProbability();
     case Layer::GateOffset:
@@ -101,6 +111,10 @@ int NoteSequence::Step::layerValue(Layer layer) const {
         return noteVariationProbability();
     case Layer::Condition:
         return int(condition());
+    case Layer::StageRepeats:
+        return stageRepeats();
+    case Layer::StageRepeatsMode:
+        return stageRepeatMode();
     case Layer::Last:
         break;
     }
@@ -115,6 +129,9 @@ void NoteSequence::Step::setLayerValue(Layer layer, int value) {
         break;
     case Layer::Slide:
         setSlide(value);
+        break;
+    case Layer::BypassScale:
+        setBypassScale(value);
         break;
     case Layer::GateProbability:
         setGateProbability(value);
@@ -149,6 +166,12 @@ void NoteSequence::Step::setLayerValue(Layer layer, int value) {
     case Layer::Condition:
         setCondition(Types::Condition(value));
         break;
+    case Layer::StageRepeats:
+        setStageRepeats(value);
+        break;
+    case Layer::StageRepeatsMode:
+        setStageRepeatsMode(static_cast<NoteSequence::StageRepeatMode>(value));
+        break;
     case Layer::Last:
         break;
     }
@@ -161,6 +184,7 @@ void NoteSequence::Step::clear() {
     setGateProbability(GateProbability::Max);
     setGateOffset(0);
     setSlide(false);
+    setBypassScale(false);
     setRetrigger(0);
     setRetriggerProbability(RetriggerProbability::Max);
     setLength(Length::Max / 2);
@@ -170,6 +194,8 @@ void NoteSequence::Step::clear() {
     setNoteVariationRange(0);
     setNoteVariationProbability(NoteVariationProbability::Max);
     setCondition(Types::Condition::Off);
+    setStageRepeats(0);
+    setStageRepeatsMode(StageRepeatMode::Each);
 }
 
 void NoteSequence::Step::write(VersionedSerializedWriter &writer) const {
@@ -193,12 +219,16 @@ void NoteSequence::Step::read(VersionedSerializedReader &reader) {
     } else {
         reader.read(_data0.raw);
         reader.read(_data1.raw);
+        if (reader.dataVersion() < ProjectVersion::Version34) {
+            setBypassScale(false);
+        }
     }
 }
 
 void NoteSequence::writeRouted(Routing::Target target, int intValue, float floatValue) {
     switch (target) {
     case Routing::Target::Scale:
+        //_model._selectedScale[0] = intValue;
         setScale(intValue, true);
         break;
     case Routing::Target::RootNote:
@@ -236,6 +266,18 @@ void NoteSequence::clear() {
 void NoteSequence::clearSteps() {
     for (auto &step : _steps) {
         step.clear();
+    }
+}
+
+void NoteSequence::clearStepsSelected(const std::bitset<CONFIG_STEP_COUNT> &selected) {
+    if (selected.any()) {
+        for (size_t i = 0; i < CONFIG_STEP_COUNT; ++i) {
+            if (selected[i]) {
+                _steps[i].clear();
+            }
+    }
+    } else {
+        clearSteps();
     }
 }
 

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "BasePage.h"
+#include "ui/KeyPressEventTracker.h"
+
 
 class PatternPage : public BasePage {
 public:
@@ -21,8 +23,10 @@ public:
     virtual void keyPress(KeyPressEvent &event) override;
     virtual void encoder(EncoderEvent &event) override;
 
+     int *getPressedKeySteps(Key key);
+
 private:
-    void contextShow();
+    void contextShow(bool doubleClick = false);
     void contextAction(int index);
     bool contextActionEnabled(int index) const;
 
@@ -35,4 +39,22 @@ private:
     bool _latching = false;
     bool _syncing = false;
     int8_t _snapshotTargetPattern = -1;
+
+    KeyPressEventTracker _keyPressEventTracker;
+
+    int otherPressedStepKey(const KeyState &keyState, int step) const {
+        bool found = false;
+        int other = -1;
+        for (int i = 0; i < 16; ++i) {
+            if (i != step && keyState[MatrixMap::fromStep(i)]) {
+                if (found) {
+                    return -1;
+                } else {
+                    other = i;
+                    found = true;
+                }
+            }
+        }
+        return other;
+    }
 };

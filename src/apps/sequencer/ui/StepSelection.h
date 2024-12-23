@@ -109,6 +109,23 @@ public:
         _first = 0;
     }
 
+    void shiftLeft() {
+        rotateL(_selected, 1);
+    }
+
+    void shiftRight() {
+        rotateR(_selected, 1);
+
+    }
+
+    inline void rotateR(std::bitset<N>& b, unsigned m) {
+        b = b << m | b >> (N-m);
+    }
+
+    inline void rotateL(std::bitset<N>& b, unsigned m) {
+        b = b >> m | b << (N-m);
+    }
+
     void selectEqualSteps(int stepIndex) {
         _mode = Mode::Persist;
         for (int i = 0; i < int(_selected.size()); ++i) {
@@ -130,6 +147,29 @@ public:
         return _first;
     }
 
+    int at(int index) const {
+        return _selected[index];
+    }
+
+    int firstSetIndex() const {
+        for (size_t i = 0; i < _selected.size(); ++i) {
+            if (_selected[i]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    int lastSetIndex() const {
+        int last = -1;
+        for (size_t i = 0; i < _selected.size(); ++i) {
+            if (_selected[i]) {
+                last = i;
+            }
+        }
+        return last;
+    }
+
     bool none() const {
         return _selected.none();
     }
@@ -147,6 +187,7 @@ public:
     }
 
     const std::bitset<N> &selected() const { return _selected; }
+    std::bitset<N> &selected() { return _selected; }
 
     bool operator[](int index) const {
         return _selected[index];
@@ -167,15 +208,6 @@ private:
             }
         }
         return other;
-    }
-
-    int firstSetIndex() const {
-        for (size_t i = 0; i < _selected.size(); ++i) {
-            if (_selected[i]) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     enum class Mode : uint8_t {

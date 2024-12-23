@@ -55,14 +55,51 @@ void TrackPage::keyPress(KeyPressEvent &event) {
         return;
     }
 
+
+    if (key.pageModifier() && event.count() == 2) {
+        contextShow(true);
+        event.consume();
+        return;
+    }
+
     if (key.pageModifier()) {
         return;
     }
 
-    if (key.isTrackSelect()) {
-        _project.setSelectedTrackIndex(key.trackSelect());
-        setTrack(_project.selectedTrack());
-    }
+    if (key.is(Key::Encoder) && selectedRow() == 0) {
+        int index = _project.selectedTrackIndex();
+        switch (_project.selectedTrack().trackMode()) {
+            case Track::TrackMode::Note:
+                _manager.pages().textInput.show("NAME:", _noteTrack->name(), NoteTrack::NameLength, [this, index] (bool result, const char *text) {
+                    if (result) {
+                        _project.selectedTrack().noteTrack().setName(text);
+                        
+                        _project.setSelectedTrackIndex(2);
+                        _project.setSelectedTrackIndex(index);
+                    }
+                });
+                break;
+            case Track::TrackMode::Curve:
+                _manager.pages().textInput.show("NAME:", _curveTrack->name(), CurveTrack::NameLength, [this] (bool result, const char *text) {
+                    if (result) {
+                        _project.selectedTrack().curveTrack().setName(text);
+                    }
+                });
+                break;  
+            case Track::TrackMode::MidiCv:
+                _manager.pages().textInput.show("NAME:", _midiCvTrack->name(), MidiCvTrack::NameLength, [this] (bool result, const char *text) {
+                    if (result) {
+                        _project.selectedTrack().midiCvTrack().setName(text);
+                    }
+                });
+                break;      
+            case Track::TrackMode::Last:
+                break;     
+        }
+
+    return;
+}
+
 
     ListPage::keyPress(event);
 }
@@ -74,14 +111,17 @@ void TrackPage::setTrack(Track &track) {
     case Track::TrackMode::Note:
         _noteTrackListModel.setTrack(track.noteTrack());
         newListModel = &_noteTrackListModel;
+        _noteTrack = &track.noteTrack();
         break;
     case Track::TrackMode::Curve:
         _curveTrackListModel.setTrack(track.curveTrack());
         newListModel = &_curveTrackListModel;
+        _curveTrack = &track.curveTrack();
         break;
     case Track::TrackMode::MidiCv:
         _midiCvTrackListModel.setTrack(track.midiCvTrack());
         newListModel = &_midiCvTrackListModel;
+        _midiCvTrack = &track.midiCvTrack();
         break;
     case Track::TrackMode::Last:
         ASSERT(false, "invalid track mode");
@@ -94,12 +134,13 @@ void TrackPage::setTrack(Track &track) {
     }
 }
 
-void TrackPage::contextShow() {
+void TrackPage::contextShow(bool doubleClick) {
     showContextMenu(ContextMenu(
         contextMenuItems,
         int(ContextAction::Last),
         [&] (int index) { contextAction(index); },
-        [&] (int index) { return contextActionEnabled(index); }
+        [&] (int index) { return contextActionEnabled(index); },
+        doubleClick
     ));
 }
 

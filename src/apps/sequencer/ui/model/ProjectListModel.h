@@ -10,7 +10,11 @@ class ProjectListModel : public RoutableListModel {
 public:
     ProjectListModel(Project &project) :
         _project(project)
-    {}
+    {
+        for (int i = 0; i < 23; ++i) {
+            _scales[i] = i;
+        }
+    }
 
     virtual int rows() const override {
         return Last;
@@ -45,6 +49,13 @@ public:
         }
     }
 
+    void setSelectedScale() {
+        if (_editScale) {
+            _project.editScale(_scales[_selectedScale], false);
+        }
+        _editScale = !_editScale;
+    }
+
 private:
     enum Item {
         Name,
@@ -57,6 +68,7 @@ private:
         MonitorMode,
         RecordMode,
         MidiInput,
+        MidiPgmChange,
         CvGateInput,
         CurveCvInput,
         Last
@@ -74,6 +86,7 @@ private:
         case MonitorMode:       return "Monitor Mode";
         case RecordMode:        return "Record Mode";
         case MidiInput:         return "MIDI Input";
+        case MidiPgmChange:     return "MIDI Pgm Chng";
         case CvGateInput:       return "CV/Gate Input";
         case CurveCvInput:      return "Curve CV Input";
         case Last:              break;
@@ -102,8 +115,10 @@ private:
         case SyncMeasure:
             _project.printSyncMeasure(str);
             break;
-        case Scale:
-            _project.printScale(str);
+        case Scale: {
+            auto name = _scales[_selectedScale] < 0 ? "Default" : Scale::name(_scales[_selectedScale]);
+            str(name);
+            }
             break;
         case RootNote:
             _project.printRootNote(str);
@@ -116,6 +131,9 @@ private:
             break;
         case MidiInput:
             _project.printMidiInput(str);
+            break;
+        case MidiPgmChange:
+            _project.printMidiPgmChange(str);
             break;
         case CvGateInput:
             _project.printCvGateInput(str);
@@ -145,7 +163,7 @@ private:
             _project.editSyncMeasure(value, shift);
             break;
         case Scale:
-            _project.editScale(value, shift);
+            _selectedScale = clamp(_selectedScale + value, 0, 23);
             break;
         case RootNote:
             _project.editRootNote(value, shift);
@@ -159,6 +177,9 @@ private:
         case MidiInput:
             _project.editMidiInput(value, shift);
             break;
+        case MidiPgmChange:
+            _project.editMidiPgmChange(value, shift);
+            break;
         case CvGateInput:
             _project.editCvGateInput(value, shift);
             break;
@@ -170,5 +191,11 @@ private:
         }
     }
 
+    virtual void setSelectedScale(int defaultScale, bool force = false) override {};
+    
     Project &_project;
+    private:
+        std::array<int, 23> _scales;
+        int _selectedScale = 0;
+        bool _editScale = false;
 };

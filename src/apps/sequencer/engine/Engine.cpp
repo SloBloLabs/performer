@@ -5,6 +5,7 @@
 
 #include "core/Debug.h"
 #include "core/midi/MidiMessage.h"
+#include "ui/ControllerManager.h"
 
 #include "os/os.h"
 
@@ -41,6 +42,10 @@ void Engine::init() {
     // setup track engines
     updateTrackSetups();
     reset();
+    
+    int index = _project.selectedTrackIndex();
+    _project.setSelectedTrackIndex(2);
+    _project.setSelectedTrackIndex(index);
 
     _lastSystemTicks = os::ticks();
 }
@@ -235,6 +240,9 @@ void Engine::togglePlay(bool shift) {
 
 void Engine::clockStart() {
     _clock.masterStart();
+
+    startSong();
+
 }
 
 void Engine::clockStop() {
@@ -247,10 +255,35 @@ void Engine::clockContinue() {
 
 void Engine::clockReset() {
     _clock.masterReset();
+    stopSong();
 }
 
 bool Engine::clockRunning() const {
     return _state.running();
+}
+
+
+void Engine::startSong() {
+    int syncSong = _model.settings().userSettings().get<SyncSong>(SettingSyncSong)->getValue();
+
+    if (syncSong==1) {
+        int slotCount = _project.song().slotCount();
+
+        if (slotCount>0 && !_project.playState().songState().playing()) {
+            int _selectedSlot = slotCount > 0 ? clamp(1, 0, slotCount - 1) : -1;
+            _project.playState().playSong(_selectedSlot, PlayState::ExecuteType::Immediate);
+        }
+    }
+}
+
+void Engine::stopSong() {
+    int syncSong = _model.settings().userSettings().get<SyncSong>(SettingSyncSong)->getValue();
+
+    if (syncSong==1) {
+        if (_project.playState().songState().playing()) {
+            _project.playState().stopSong();
+        } 
+    }
 }
 
 void Engine::toggleRecording() {
@@ -376,7 +409,8 @@ void Engine::updateTrackSetups() {
         auto &track = _project.track(trackIndex);
         int linkTrack = track.linkTrack();
         const TrackEngine *linkedTrackEngine = linkTrack >= 0 ? &trackEngine(linkTrack) : nullptr;
-
+        FixedStringBuilder<16> str("TRACK %d", trackIndex+1);
+       
         if (!_trackEngines[trackIndex] || _trackEngines[trackIndex]->trackMode() != track.trackMode()) {
             auto &trackEngine = _trackEngines[trackIndex];
             auto &trackContainer = _trackEngineContainers[trackIndex];
@@ -384,12 +418,23 @@ void Engine::updateTrackSetups() {
             switch (track.trackMode()) {
             case Track::TrackMode::Note:
                 trackEngine = trackContainer.create<NoteTrackEngine>(*this, _model, track, linkedTrackEngine);
+                if (sizeof(track.noteTrack().name()==0)) {
+                    track.noteTrack().setName(str);
+                }
                 break;
             case Track::TrackMode::Curve:
                 trackEngine = trackContainer.create<CurveTrackEngine>(*this, _model, track, linkedTrackEngine);
+                if (sizeof(track.noteTrack().name()==0)) {
+                    track.curveTrack().setName(str);
+                }
+                break;
                 break;
             case Track::TrackMode::MidiCv:
                 trackEngine = trackContainer.create<MidiCvTrackEngine>(*this, _model, track, linkedTrackEngine);
+                if (sizeof(track.noteTrack().name()==0)) {
+                    track.midiCvTrack().setName(str);
+                }
+                break;
                 break;
             case Track::TrackMode::Last:
                 break;
@@ -433,6 +478,20 @@ void Engine::reset() {
     _midiOutputEngine.reset();
 }
 
+bool allPatternsEqual(PlayState playState) {
+    auto firstTrackState = playState.trackState(0);
+
+    for (int trackIndex = 0; trackIndex < CONFIG_TRACK_COUNT; ++trackIndex) {
+        auto trackState = playState.trackState(trackIndex);
+
+        if (trackState.pattern() != firstTrackState.pattern()
+            || trackState.requestedPattern() != firstTrackState.requestedPattern()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void Engine::updatePlayState(bool ticked) {
     auto &playState = _project.playState();
     auto &songState = playState.songState();
@@ -444,7 +503,16 @@ void Engine::updatePlayState(bool ticked) {
     bool hasRequests = hasImmediateRequests || hasSyncedRequests || handleLatchedRequests;
 
     bool handleSyncedRequests = _tick % syncDivisor() == 0;
+    bool preHandleSyncedRequests = (_tick + 192) % syncDivisor() == 0;
     bool handleSongAdvance = ticked && _tick > 0 && _tick % measureDivisor() == 0;
+
+    // send initial program change if we haven't sent it already
+    // means that when the sequencer initially starts, it will sync connected devices to the same pattern
+    // only works when all patterns are equal
+    if (_project.midiPgmChangeEnabled() && !_midiHasSentInitialPgmChange && allPatternsEqual(playState)) {
+        _midiOutputEngine.sendProgramChange(0, playState.trackState(0).pattern());
+        _midiHasSentInitialPgmChange = true;
+    }
 
     // handle mute & pattern requests
 
@@ -475,6 +543,14 @@ void Engine::updatePlayState(bool ticked) {
 
             // clear requests
             trackState.clearRequests(muteRequests | patternRequests);
+        }
+
+        bool shouldSendPgmChange = !_preSendMidiPgmChange && changedPatterns;
+        bool shouldPreSendPgmChange = _preSendMidiPgmChange && ((changedPatterns && !playState.hasSyncedRequests())
+                                                                || (preHandleSyncedRequests && playState.hasSyncedRequests()));
+
+        if (_project.midiPgmChangeEnabled() && (shouldSendPgmChange || shouldPreSendPgmChange) && allPatternsEqual(playState)) {
+            _midiOutputEngine.sendProgramChange(0, playState.trackState(0).requestedPattern());
         }
     }
 
@@ -588,15 +664,28 @@ void Engine::updateOverrides() {
 }
 
 void Engine::usbMidiConnect(uint16_t vendorId, uint16_t productId) {
+    
     if (_usbMidiConnectHandler) {
         _usbMidiConnectHandler(vendorId, productId);
+
+        auto lp = ControllerManager::findController(vendorId, productId);
+
+        if (lp) {
+            _deviceConnected = true;
+        }
     }
 }
 
 void Engine::usbMidiDisconnect() {
     if (_usbMidiDisconnectHandler) {
         _usbMidiDisconnectHandler();
+        _deviceConnected = false;
     }
+}
+
+bool Engine::isLaunchpadConnected() {
+    return _deviceConnected;
+    
 }
 
 void Engine::receiveMidi() {
@@ -733,6 +822,7 @@ void Engine::initClock() {
         // start clock on first clock pulse if reset is not hold and clock is not running
         if (clockSetup.clockInputMode() == ClockSetup::ClockInputMode::Reset && !_clock.isRunning() && !_dio.resetInput.get()) {
             _clock.slaveStart(ClockSourceExternal);
+            startSong();
         }
         if (value) {
             _clock.slaveTick(ClockSourceExternal);
@@ -746,23 +836,29 @@ void Engine::initClock() {
         case ClockSetup::ClockInputMode::Reset:
             if (value) {
                 _clock.slaveReset(ClockSourceExternal);
+                stopSong();
             } else {
                 _clock.slaveStart(ClockSourceExternal);
+                startSong();
             }
             break;
         case ClockSetup::ClockInputMode::Run:
             if (value) {
                 _clock.slaveContinue(ClockSourceExternal);
+                startSong();
             } else {
                 _clock.slaveStop(ClockSourceExternal);
+                stopSong();
             }
             break;
         case ClockSetup::ClockInputMode::StartStop:
             if (value) {
                 _clock.slaveStart(ClockSourceExternal);
+                startSong();
             } else {
                 _clock.slaveStop(ClockSourceExternal);
                 _clock.slaveReset(ClockSourceExternal);
+                stopSong();
             }
             break;
         case ClockSetup::ClockInputMode::Last:

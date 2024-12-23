@@ -1,12 +1,17 @@
 #pragma once
 
+#include "BaseTrackPatternFollow.h"
 #include "Config.h"
 #include "Types.h"
 #include "NoteSequence.h"
 #include "Serialize.h"
 #include "Routing.h"
+#include "FileDefs.h"
+#include "core/utils/StringUtils.h"
+#include "BaseTrack.h"
 
-class NoteTrack {
+
+class NoteTrack : public BaseTrack, public BaseTrackPatternFollow {
 public:
     //----------------------------------------
     // Types
@@ -267,6 +272,10 @@ public:
 
     const NoteSequence &sequence(int index) const { return _sequences[index]; }
           NoteSequence &sequence(int index)       { return _sequences[index]; }
+
+    void setSequence(int index, NoteSequence seq) {
+        _sequences[index] = seq;
+    }
 
     //----------------------------------------
     // Routing

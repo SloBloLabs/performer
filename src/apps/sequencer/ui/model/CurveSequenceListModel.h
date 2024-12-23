@@ -56,7 +56,9 @@ public:
     }
 
     virtual void setIndexed(int row, int index) override {
-        setIndexedValue(Item(row), index);
+        if (index >= 0 && index < indexedCount(row)) {
+            setIndexedValue(Item(row), index);
+        }
     }
 
     virtual Routing::Target routingTarget(int row) const override {
@@ -198,6 +200,8 @@ private:
             break;
         }
     }
+
+    virtual void setSelectedScale(int defaultScale, bool force = false) override {};
 
     CurveSequence *_sequence = nullptr;
 };

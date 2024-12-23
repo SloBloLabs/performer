@@ -82,6 +82,10 @@ public:
     void clockReset();
     bool clockRunning() const;
 
+    // song control
+    void startSong();
+    void stopSong();
+
     // recording
     void toggleRecording();
     void setRecording(bool recording);
@@ -156,6 +160,9 @@ public:
 
     Stats stats() const;
 
+     bool isLaunchpadConnected();
+
+
 private:
     // Clock::Listener
     virtual void onClockOutput(const Clock::OutputState &state) override;
@@ -169,7 +176,7 @@ private:
 
     void usbMidiConnect(uint16_t vendorId, uint16_t productId);
     void usbMidiDisconnect();
-
+   
     void receiveMidi();
     void receiveMidi(MidiPort port, uint8_t cable, const MidiMessage &message);
     void monitorMidi(const MidiMessage &message);
@@ -242,6 +249,10 @@ private:
         int8_t lastTrack = -1;
     } _midiMonitoring;
 
+    // TODO Could be a setting if needed
+    static const bool _preSendMidiPgmChange = true;
+    bool _midiHasSentInitialPgmChange = false;
+
     // gate output overrides
     bool _gateOutputOverride = false;
     uint8_t _gateOutputOverrideValue = 0;
@@ -251,4 +262,6 @@ private:
     std::array<float, CvOutput::Channels> _cvOutputOverrideValues;
 
     MessageHandler _messageHandler;
+
+    bool _deviceConnected = false;
 };

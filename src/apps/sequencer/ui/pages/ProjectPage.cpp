@@ -57,6 +57,12 @@ void ProjectPage::keyPress(KeyPressEvent &event) {
         return;
     }
 
+    if (key.pageModifier() && event.count() == 2) {
+        contextShow(true);
+        event.consume();
+        return;
+    }
+
     if (key.pageModifier()) {
         // easter egg
         if (key.is(Key::Step15)) {
@@ -75,6 +81,13 @@ void ProjectPage::keyPress(KeyPressEvent &event) {
         return;
     }
 
+    if (key.isEncoder()) {
+        auto row = ListPage::selectedRow();
+        if (row == 5) {
+            _listModel.setSelectedScale();
+        }
+    }
+
     ListPage::keyPress(event);
 }
 
@@ -82,12 +95,13 @@ void ProjectPage::encoder(EncoderEvent &event) {
     ListPage::encoder(event);
 }
 
-void ProjectPage::contextShow() {
+void ProjectPage::contextShow(bool doubleClick) {
     showContextMenu(ContextMenu(
         contextMenuItems,
         int(ContextAction::Last),
         [&] (int index) { contextAction(index); },
-        [&] (int index) { return contextActionEnabled(index); }
+        [&] (int index) { return contextActionEnabled(index); },
+        doubleClick
     ));
 }
 
@@ -150,7 +164,7 @@ void ProjectPage::loadProject() {
 }
 
 void ProjectPage::saveProject() {
-    if (!_project.slotAssigned()) {
+    if (!_project.slotAssigned() || _project.autoLoaded()) {
         saveAsProject();
         return;
     }
@@ -159,7 +173,7 @@ void ProjectPage::saveProject() {
 }
 
 void ProjectPage::saveAsProject() {
-    _manager.pages().fileSelect.show("SAVE PROJECT", FileType::Project, 0, true, [this] (bool result, int slot) {
+    _manager.pages().fileSelect.show("SAVE PROJECT", FileType::Project, _project.slotAssigned() ? _project.slot() : 0, true, [this] (bool result, int slot) {
         if (result) {
             if (FileManager::slotUsed(FileType::Project, slot)) {
                 _manager.pages().confirmation.show("ARE YOU SURE?", [this, slot] (bool result) {

@@ -6,6 +6,7 @@
 #include "ui/model/NoteSequenceListModel.h"
 
 #include "engine/generators/SequenceBuilder.h"
+#include "ui/KeyPressEventTracker.h"
 
 #include "core/utils/Container.h"
 
@@ -38,7 +39,7 @@ private:
     void updateMonitorStep();
     void drawDetail(Canvas &canvas, const NoteSequence::Step &step);
 
-    void contextShow();
+    void contextShow(bool doubleClick = false);
     void contextAction(int index);
     bool contextActionEnabled(int index) const;
 
@@ -46,12 +47,17 @@ private:
     void copySequence();
     void pasteSequence();
     void duplicateSequence();
+    void tieNotes();
     void generateSequence();
 
     void quickEdit(int index);
 
     bool allSelectedStepsActive() const;
     void setSelectedStepsGate(bool gate);
+
+    void setSectionTracking(bool track);
+    bool isSectionTracking();
+    void toggleSectionTracking();
 
     NoteSequence::Layer layer() const { return _project.selectedNoteSequenceLayer(); };
     void setLayer(NoteSequence::Layer layer) { _project.setSelectedNoteSequenceLayer(layer); }
@@ -60,9 +66,14 @@ private:
     bool _showDetail;
     uint32_t _showDetailTicks;
 
+    KeyPressEventTracker _keyPressEventTracker;
+
+
     NoteSequenceListModel _listModel;
 
     StepSelection<CONFIG_STEP_COUNT> _stepSelection;
 
     Container<NoteSequenceBuilder> _builderContainer;
+
+    NoteSequence _inMemorySequence;
 };

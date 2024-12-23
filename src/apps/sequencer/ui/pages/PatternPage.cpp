@@ -8,6 +8,7 @@
 #include "model/PlayState.h"
 
 #include "core/utils/StringBuilder.h"
+#include <iostream>
 
 enum class Function {
     Latch       = 0,
@@ -50,6 +51,10 @@ void PatternPage::draw(Canvas &canvas) {
     const auto &playState = _project.playState();
     bool hasCancel = playState.hasSyncedRequests() || playState.hasLatchedRequests();
     bool snapshotActive = playState.snapshotActive();
+
+
+    int patternChange = _model.settings().userSettings().get<PatternChange>(SettingPatternChange)->getValue();
+
     const char *functionNames[] = {
         "LATCH",
         "SYNC",
@@ -57,6 +62,9 @@ void PatternPage::draw(Canvas &canvas) {
         snapshotActive ? "COMMIT" : nullptr,
         hasCancel ? "CANCEL" : nullptr
     };
+    if (patternChange==1) {
+        functionNames[1] = "IMMEDIATE";   
+    }
 
     WindowPainter::clear(canvas);
     WindowPainter::drawHeader(canvas, _model, _engine, "PATTERN");
@@ -80,32 +88,32 @@ void PatternPage::draw(Canvas &canvas) {
 
         x += 2;
 
-        canvas.setColor(trackSelected ? 0xf : 0x7);
+        canvas.setColor(trackSelected ? Color::Bright : Color::Medium);
         canvas.drawTextCentered(x, y - 2, w, 8, FixedStringBuilder<8>("T%d", trackIndex + 1));
 
         y += 11;
 
-        canvas.setColor(trackEngine.activity() ? 0xf : 0x7);
+        canvas.setColor(trackEngine.activity() ? Color::Bright : Color::Medium);
         canvas.drawRect(x, y, w, h);
 
         for (int p = 0; p < 16; ++p) {
             int px = x + (p % 8) * 3 + 2;
             int py = y + (p / 8) * 3 + 2;
             if (p == trackState.pattern()) {
-                canvas.setColor(0xf);
+                canvas.setColor(Color::Bright);
                 canvas.fillRect(px, py, 3, 3);
             } else if (trackState.hasPatternRequest() && p == trackState.requestedPattern()) {
-                canvas.setColor(0x7);
+                canvas.setColor(Color::Medium);
                 canvas.fillRect(px, py, 3, 3);
             } else {
-                canvas.setColor(0x3);
+                canvas.setColor(Color::Low);
                 canvas.point(px + 1, py + 1);
             }
         }
 
         y += 5;
 
-        canvas.setColor(trackSelected ? 0xf : 0x7);
+        canvas.setColor(trackSelected ? Color::Bright : Color::Medium);
         canvas.drawTextCentered(x, y + 10, w, 8, snapshotActive ? "S" : FixedStringBuilder<8>("P%d", trackState.pattern() + 1));
 
         if (trackState.hasPatternRequest() && trackState.pattern() != trackState.requestedPattern()) {
@@ -114,7 +122,7 @@ void PatternPage::draw(Canvas &canvas) {
     }
 
     if (playState.hasSyncedRequests() && hasRequested) {
-        canvas.setColor(0xf);
+        canvas.setColor(Color::Bright);
         canvas.hline(0, 10, _engine.syncFraction() * Width);
     }
 }
@@ -224,6 +232,13 @@ void PatternPage::keyPress(KeyPressEvent &event) {
         return;
     }
 
+
+    if (key.pageModifier() && event.count() == 2) {
+        contextShow(true);
+        event.consume();
+        return;
+    }
+
     if (key.pageModifier()) {
         return;
     }
@@ -261,26 +276,45 @@ void PatternPage::keyPress(KeyPressEvent &event) {
             // select edit pattern
             _project.setSelectedPatternIndex(pattern);
         } else {
-            // select playing pattern
 
-            // use immediate by default
-            // use latched when LATCH is pressed
-            // use synced when SYNC is pressed
-            PlayState::ExecuteType executeType = _latching ? PlayState::Latched : (_syncing ? PlayState::Synced : PlayState::Immediate);
+            
+            int otherKey = otherPressedStepKey(key.state(), key.step());
+            if (otherKey != -1) {
+                int sedondPattern = key.step();
+                int firstPattern = otherKey;
+                auto &song = _project.song();
+                song.chainPattern(firstPattern);
+                song.chainPattern(sedondPattern);
+                
+            } else {
 
-            bool globalChange = true;
-            for (int trackIndex = 0; trackIndex < CONFIG_TRACK_COUNT; ++trackIndex) {
-                if (pageKeyState()[MatrixMap::fromTrack(trackIndex)]) {
-                    playState.selectTrackPattern(trackIndex, pattern, executeType);
-                    globalChange = false;
+                UserSettings userSettings = _model.settings().userSettings();
+
+                int _patternChangeDefault = userSettings.get<PatternChange>(SettingPatternChange)->getValue();
+
+                // select playing pattern
+
+                PlayState::ExecuteType executeType = PlayState::Immediate;
+                if (_latching) executeType = PlayState::Latched;
+                else if (_syncing && _patternChangeDefault==1) executeType = PlayState::Immediate;
+                else if (_syncing && _patternChangeDefault==0) executeType = PlayState::Synced;
+                else if (_patternChangeDefault==0) executeType = PlayState::Immediate;
+                else if (_patternChangeDefault==1) executeType = PlayState::Synced;
+
+                bool globalChange = true;
+                for (int trackIndex = 0; trackIndex < CONFIG_TRACK_COUNT; ++trackIndex) {
+                    if (pageKeyState()[MatrixMap::fromTrack(trackIndex)]) {
+                        playState.selectTrackPattern(trackIndex, pattern, executeType);
+                        globalChange = false;
+                    }
+                }
+                if (globalChange) {
+                    playState.selectPattern(pattern, executeType);
+                    _project.setSelectedPatternIndex(pattern);
                 }
             }
-            if (globalChange) {
-                playState.selectPattern(pattern, executeType);
-                _project.setSelectedPatternIndex(pattern);
-            }
+            event.consume();
         }
-        event.consume();
     }
 
     if (key.isLeft()) {
@@ -293,16 +327,30 @@ void PatternPage::keyPress(KeyPressEvent &event) {
     }
 }
 
+    int *PatternPage::getPressedKeySteps(Key key) {
+        int *keys = new int [16];
+        for (int i=9, j=0; i < 25; ++i) {
+            auto s = key.state(i);
+            if (s == 1) {
+                keys[j] = i;
+                j++;
+            }
+        }
+        
+        return keys;
+    }
+
 void PatternPage::encoder(EncoderEvent &event) {
     _project.editSelectedPatternIndex(event.value(), event.pressed());
 }
 
-void PatternPage::contextShow() {
+void PatternPage::contextShow(bool doubleClick) {
     showContextMenu(ContextMenu(
         contextMenuItems,
         int(ContextAction::Last),
         [&] (int index) { contextAction(index); },
-        [&] (int index) { return contextActionEnabled(index); }
+        [&] (int index) { return contextActionEnabled(index); },
+        doubleClick
     ));
 }
 

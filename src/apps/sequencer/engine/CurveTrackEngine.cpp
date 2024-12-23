@@ -2,6 +2,7 @@
 
 #include "Engine.h"
 #include "Groove.h"
+#include "Slide.h"
 #include "SequenceUtils.h"
 
 #include "core/Debug.h"
@@ -13,8 +14,11 @@
 
 static Random rng;
 
-static float evalStepShape(const CurveSequence::Step &step, bool variation, bool invert, float fraction) {
+static float evalStepShape(const CurveSequence::Step &step, bool variation, bool invert, float fraction, int direction) {
     auto function = Curve::function(Curve::Type(variation ? step.shapeVariation() : step.shape()));
+    if (direction == -1) {
+        function = Curve::function(Curve::Type(variation ? step.shapeVariation() : Curve::revAt(step.shape())));
+    }
     float value = function(fraction);
     if (invert) {
         value = 1.f - value;
@@ -145,9 +149,7 @@ void CurveTrackEngine::update(float dt) {
     float offset = mute() ? 0.f : _curveTrack.offsetVolts();
 
     if (_curveTrack.slideTime() > 0) {
-        float factor = 1.f - 0.01f * _curveTrack.slideTime();
-        factor = 500.f * factor * factor;
-        _cvOutput += (_cvOutputTarget + offset - _cvOutput) * std::min(1.f, dt * factor);
+        _cvOutput = Slide::applySlide(_cvOutput, _cvOutputTarget + offset, _curveTrack.slideTime(), dt);
     } else {
         _cvOutput = _cvOutputTarget + offset;
     }
@@ -192,6 +194,8 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
     const auto &sequence = *_sequence;
     const auto &range = Types::voltageRangeInfo(sequence.range());
 
+    _currentStepFraction = float(relativeTick % divisor) / divisor;
+
     if (mute()) {
         switch (_curveTrack.muteMode()) {
         case CurveTrack::MuteMode::LastValue:
@@ -217,9 +221,7 @@ void CurveTrackEngine::updateOutput(uint32_t relativeTick, uint32_t divisor) {
         const auto &evalSequence = fillNextPattern ? *_fillSequence : *_sequence;
         const auto &step = evalSequence.step(_currentStep);
 
-        _currentStepFraction = float(relativeTick % divisor) / divisor;
-
-        float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, _currentStepFraction);
+        float value = evalStepShape(step, _shapeVariation || fillVariation, fillInvert, _currentStepFraction, _sequenceState.direction());
         value = range.denormalize(value);
         _cvOutputTarget = value;
     }

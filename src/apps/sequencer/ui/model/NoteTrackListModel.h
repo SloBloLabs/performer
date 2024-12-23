@@ -59,6 +59,7 @@ public:
 
 private:
     enum Item {
+        TrackName,
         PlayMode,
         FillMode,
         FillMuted,
@@ -71,11 +72,13 @@ private:
         RetriggerProbabilityBias,
         LengthBias,
         NoteProbabilityBias,
+        PatternFollow,
         Last
     };
 
     static const char *itemName(Item item) {
         switch (item) {
+        case TrackName: return "Name";
         case PlayMode:  return "Play Mode";
         case FillMode:  return "Fill Mode";
         case FillMuted: return "Fill Muted";
@@ -88,6 +91,7 @@ private:
         case RetriggerProbabilityBias: return "Retrig P. Bias";
         case LengthBias: return "Length Bias";
         case NoteProbabilityBias: return "Note P. Bias";
+        case PatternFollow: return "Pattern Follow";
         case Last:      break;
         }
         return nullptr;
@@ -99,6 +103,9 @@ private:
 
     void formatValue(Item item, StringBuilder &str) const {
         switch (item) {
+        case TrackName:
+            str(_track->name());
+            break;
         case PlayMode:
             _track->printPlayMode(str);
             break;
@@ -135,6 +142,9 @@ private:
         case NoteProbabilityBias:
             _track->printNoteProbabilityBias(str);
             break;
+        case PatternFollow:
+            _track->printPatternFollow(str);
+            break;
         case Last:
             break;
         }
@@ -142,6 +152,9 @@ private:
 
     void editValue(Item item, int value, bool shift) {
         switch (item) {
+
+        case TrackName:
+            break;
         case PlayMode:
             _track->editPlayMode(value, shift);
             break;
@@ -178,10 +191,15 @@ private:
         case NoteProbabilityBias:
             _track->editNoteProbabilityBias(value, shift);
             break;
+        case PatternFollow:
+            _track->editPatternFollow(value, shift);
+            break;
         case Last:
             break;
         }
     }
+
+    virtual void setSelectedScale(int defaultScale, bool force = false) override {};
 
     NoteTrack *_track;
 };

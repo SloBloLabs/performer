@@ -1,5 +1,6 @@
 #include "NoteSequencePage.h"
 
+#include "ListPage.h"
 #include "Pages.h"
 
 #include "ui/LedPainter.h"
@@ -59,6 +60,13 @@ void NoteSequencePage::keyPress(KeyPressEvent &event) {
         return;
     }
 
+
+    if (key.pageModifier() && event.count() == 2) {
+        contextShow(true);
+        event.consume();
+        return;
+    }
+
     if (key.pageModifier()) {
         return;
     }
@@ -66,14 +74,21 @@ void NoteSequencePage::keyPress(KeyPressEvent &event) {
     if (!event.consumed()) {
         ListPage::keyPress(event);
     }
+    if (key.isEncoder()) {
+        auto row = ListPage::selectedRow();
+        if (row == 5) {
+            _listModel.setSelectedScale(_project.scale());
+        }
+    }
 }
 
-void NoteSequencePage::contextShow() {
+void NoteSequencePage::contextShow(bool doubleClick) {
     showContextMenu(ContextMenu(
         contextMenuItems,
         int(ContextAction::Last),
         [&] (int index) { contextAction(index); },
-        [&] (int index) { return contextActionEnabled(index); }
+        [&] (int index) { return contextActionEnabled(index); },
+        doubleClick
     ));
 }
 

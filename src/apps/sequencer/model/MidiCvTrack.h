@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BaseTrack.h"
 #include "Config.h"
 #include "Types.h"
 #include "MidiConfig.h"
@@ -7,17 +8,21 @@
 #include "Serialize.h"
 #include "Arpeggiator.h"
 #include "Routing.h"
+#include "FileDefs.h"
+#include "core/utils/StringUtils.h"
 
 #include "core/math/Math.h"
 
-class MidiCvTrack {
+class MidiCvTrack : public BaseTrack {
 public:
     //----------------------------------------
     // Types
     //----------------------------------------
+    enum class VoiceSignal : uint8_t { Pitch, Velocity, Pressure };
 
-    enum class VoiceConfig {
+    enum class VoiceConfig : uint8_t {
         Pitch,
+        Velocity,
         PitchVelocity,
         PitchVelocityPressure,
         Last,
@@ -25,10 +30,11 @@ public:
 
     static const char *voiceConfigName(VoiceConfig voiceConfig) {
         switch (voiceConfig) {
-        case VoiceConfig::Pitch:                return "Pitch";
-        case VoiceConfig::PitchVelocity:        return "Pitch+Vel";
-        case VoiceConfig::PitchVelocityPressure:return "Pitch+Vel+Press";
-        case VoiceConfig::Last:                 break;
+        case VoiceConfig::Pitch:                    return "Pitch";
+        case VoiceConfig::Velocity:                 return "Velocity";
+        case VoiceConfig::PitchVelocity:            return "Pitch+Vel";
+        case VoiceConfig::PitchVelocityPressure:    return "Pitch+Vel+Press";
+        case VoiceConfig::Last:                     break;
         }
         return nullptr;
     }
@@ -241,6 +247,9 @@ public:
     MidiCvTrack() { clear(); }
 
     void clear();
+
+    int voiceSignalCount() const;
+    VoiceSignal voiceSignalByIndex(int index) const;
 
     void gateOutputName(int index, StringBuilder &str) const;
     void cvOutputName(int index, StringBuilder &str) const;

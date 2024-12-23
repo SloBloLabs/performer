@@ -2,6 +2,7 @@
 
 #include "Config.h"
 #include "Observable.h"
+#include "Scale.h"
 #include "Types.h"
 #include "TimeSignature.h"
 #include "ClockSetup.h"
@@ -17,6 +18,9 @@
 #include "core/math/Math.h"
 #include "core/utils/StringBuilder.h"
 #include "core/utils/StringUtils.h"
+#include <algorithm>
+#include <string>
+#include <iostream>
 
 class Project {
 public:
@@ -53,12 +57,20 @@ public:
         StringUtils::copy(_name, name, sizeof(_name));
     }
 
+    // autoLoaded
+
+    bool autoLoaded() const { return _autoLoaded != 0; }
+    void setAutoLoaded(bool autoLoaded) { _autoLoaded = autoLoaded ? 1 : 0; }
+
     // tempo
 
     float tempo() const { return _tempo.get(isRouted(Routing::Target::Tempo)); }
     void setTempo(float tempo, bool routed = false) {
         _tempo.set(clamp(tempo, 1.f, 1000.f), routed);
+        _orinalTempo = _tempo.base;
     }
+
+    float originalTempo() { return _orinalTempo;}
 
     void editTempo(int value, bool shift) {
         if (!isRouted(Routing::Target::Tempo)) {
@@ -122,12 +134,57 @@ public:
     // scale
 
     int scale() const { return _scale; }
-    void setScale(int scale) {
-        _scale = clamp(scale, 0, Scale::Count - 1);
+    void setScale(int s) {
+        auto &pScale = Scale::get(scale());
+
+        _scale = clamp(s, 0, Scale::Count - 1);
+
+        auto &aScale = Scale::get(s);
+
+        if (pScale == aScale) {
+            return;
+        }
+
+        if (s != -1 && aScale.isChromatic() && pScale.isChromatic()) {
+
+            for (int trackIndex = 0; trackIndex < 8; ++trackIndex) {    
+                    auto &t = track(trackIndex);
+                    switch (t.trackMode()) {
+                        case Track::TrackMode::Note: {
+                            for (auto &seq : t.noteTrack().sequences()) {
+                                if (seq.scale()==-1) {
+                                    for (int i = 0; i < 64; ++i) {
+                                        auto pStep = seq.step(i);
+
+                                        int rN = pScale.noteIndex(pStep.note(), rootNote());
+                                        if (rN > 0) {
+                                            if (aScale.isNotePresent(rN)) {
+                                                int pNoteIndex = aScale.getNoteIndex(rN);
+                                                seq.step(i).setNote(pNoteIndex);
+                                            } else {
+                                                // search nearest note
+                                                while (!aScale.isNotePresent(rN)) {
+                                                    rN--;
+                                                }
+                                                int pNoteIndex = aScale.getNoteIndex(rN);
+                                                seq.step(i).setNote(pNoteIndex);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        default:
+                            break;
+                    }                    
+                }
+        }
+        
     }
 
     void editScale(int value, bool shift) {
-        setScale(scale() + value);
+        setScale(value);
     }
 
     void printScale(StringBuilder &str) const {
@@ -213,6 +270,23 @@ public:
 
     const MidiSourceConfig &midiInputSource() const { return _midiInputSource; }
           MidiSourceConfig &midiInputSource()       { return _midiInputSource; }
+
+    // midiPgmChange
+
+    void editMidiPgmChange(int value, bool shift) {
+        _midiPgmChange = value == 1;
+    }
+
+    void printMidiPgmChange(StringBuilder &str) const {
+        if (_midiPgmChange) str("On");
+        else str("Off");
+    }
+
+    void setMidiPgmChangeEnabled(bool enabled) {
+        _midiPgmChange = enabled;
+    }
+
+    bool midiPgmChangeEnabled() const { return _midiPgmChange; }
 
     // cvGateInput
 
@@ -320,10 +394,25 @@ public:
             _selectedTrackIndex = index;
             _observable.notify(SelectedTrackIndexChanged);
 
+            switch (selectedTrack()._trackMode) {
+                case Track::TrackMode::Note:
+                    StringUtils::copy(_selectedTrackName, selectedTrack().noteTrack().name(), sizeof(_selectedTrackName));
+                    break;
+                case Track::TrackMode::Curve: 
+                    StringUtils::copy(_selectedTrackName, selectedTrack().curveTrack().name(), sizeof(_selectedTrackName));
+                    break;
+                case Track::TrackMode::MidiCv:
+                    StringUtils::copy(_selectedTrackName, selectedTrack().midiCvTrack().name(), sizeof(_selectedTrackName));
+                    break;
+                case Track::TrackMode::Last:
+                    break;
+            }
             // switch selected pattern
             setSelectedPatternIndex(_playState.trackState(index).pattern());
         }
     }
+
+    const char *selectedTrackName() const { return _selectedTrackName;}
 
     bool isSelectedTrack(int index) const { return _selectedTrackIndex == index; }
 
@@ -354,6 +443,10 @@ public:
     CurveSequence::Layer selectedCurveSequenceLayer() const { return _selectedCurveSequenceLayer; }
     void setSelectedCurveSequenceLayer(CurveSequence::Layer layer) { _selectedCurveSequenceLayer = layer; }
 
+    void setSelectedCurveSequence(CurveSequence seq) {
+        _tracks[_selectedTrackIndex].curveTrack().setSequence(selectedPatternIndex(), seq);
+    }
+
     // selectedTrack
 
     const Track &selectedTrack() const { return _tracks[_selectedTrackIndex]; }
@@ -368,6 +461,10 @@ public:
 
     const NoteSequence &selectedNoteSequence() const { return noteSequence(_selectedTrackIndex, selectedPatternIndex()); }
           NoteSequence &selectedNoteSequence()       { return noteSequence(_selectedTrackIndex, selectedPatternIndex()); }
+
+    void setSelectedNoteSequence(NoteSequence seq) {
+        _tracks[_selectedTrackIndex].noteTrack().setSequence(selectedPatternIndex(), seq);
+    }
 
     // curveSequence
 
@@ -418,7 +515,9 @@ public:
 private:
     uint8_t _slot = uint8_t(-1);
     char _name[NameLength + 1];
+    mutable uint8_t _autoLoaded = 0;
     Routable<float> _tempo;
+    float _orinalTempo;
     Routable<uint8_t> _swing;
     TimeSignature _timeSignature;
     uint8_t _syncMeasure;
@@ -428,6 +527,7 @@ private:
     Types::MonitorMode _monitorMode;
     Types::MidiInputMode _midiInputMode;
     MidiSourceConfig _midiInputSource;
+    bool _midiPgmChange;
     Types::CvGateInput _cvGateInput;
     Types::CurveCvInput _curveCvInput;
 
@@ -442,6 +542,8 @@ private:
 
     int _selectedTrackIndex = 0;
     int _selectedPatternIndex = 0;
+
+    char _selectedTrackName[FileHeader::NameLength+1] = "";
     NoteSequence::Layer _selectedNoteSequenceLayer = NoteSequence::Layer(0);
     CurveSequence::Layer _selectedCurveSequenceLayer = CurveSequence::Layer(0);
 

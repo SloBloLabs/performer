@@ -1,4 +1,14 @@
-[![Build Status](https://travis-ci.org/westlicht/performer.svg?branch=master)](https://travis-ci.org/westlicht/performer)
+![Build Status](https://github.com/westlicht/performer/actions/workflows/ci.yml/badge.svg?branch=master)
+
+# Improvements
+
+This is a fork of the [original repository](https://github.com/westlicht/performer), with some improvements that I personally find essential.
+
+[Full updated documentation](https://mebitek.github.io/performer/manual/)
+
+To find out more about improvements changes, check [changelog](https://github.com/mebitek/performer/blob/master/CHANGELOG.md) and the [WIKI page ](https://github.com/mebitek/performer/wiki)
+
+--- original documentation below ---
 
 # PER|FORMER
 

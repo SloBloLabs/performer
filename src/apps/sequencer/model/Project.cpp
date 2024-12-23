@@ -28,6 +28,7 @@ void Project::writeRouted(Routing::Target target, int intValue, float floatValue
 void Project::clear() {
     _slot = uint8_t(-1);
     StringUtils::copy(_name, "INIT", sizeof(_name));
+    setAutoLoaded(false);
     setTempo(120.f);
     setSwing(50);
     setTimeSignature(TimeSignature());
@@ -37,6 +38,7 @@ void Project::clear() {
     setMonitorMode(Types::MonitorMode::Always);
     setRecordMode(Types::RecordMode::Overdub);
     setMidiInputMode(Types::MidiInputMode::All);
+    setMidiPgmChangeEnabled(false);
     setCvGateInput(Types::CvGateInput::Off);
     setCurveCvInput(Types::CurveCvInput::Off);
 
@@ -109,6 +111,7 @@ void Project::write(VersionedSerializedWriter &writer) const {
     writer.write(_monitorMode);
     writer.write(_recordMode);
     writer.write(_midiInputMode);
+    writer.write(_midiPgmChange);
     _midiInputSource.write(writer);
     writer.write(_cvGateInput);
     writer.write(_curveCvInput);
@@ -130,6 +133,8 @@ void Project::write(VersionedSerializedWriter &writer) const {
     writer.write(_selectedPatternIndex);
 
     writer.writeHash();
+
+    _autoLoaded = false;
 }
 
 bool Project::read(VersionedSerializedReader &reader) {
@@ -137,6 +142,7 @@ bool Project::read(VersionedSerializedReader &reader) {
 
     reader.read(_name, NameLength + 1, ProjectVersion::Version5);
     reader.read(_tempo.base);
+    _orinalTempo = _tempo.base;
     reader.read(_swing.base);
     if (reader.dataVersion() >= ProjectVersion::Version18) {
         _timeSignature.read(reader);
@@ -149,6 +155,9 @@ bool Project::read(VersionedSerializedReader &reader) {
     if (reader.dataVersion() >= ProjectVersion::Version29) {
         reader.read(_midiInputMode);
         _midiInputSource.read(reader);
+    }
+    if (reader.dataVersion() >= ProjectVersion::Version32) {
+        reader.read(_midiPgmChange);
     }
     reader.read(_cvGateInput, ProjectVersion::Version6);
     reader.read(_curveCvInput, ProjectVersion::Version11);

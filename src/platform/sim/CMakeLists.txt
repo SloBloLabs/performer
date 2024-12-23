@@ -2,7 +2,7 @@
 # SDL2
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
-    set(SDL_FLAGS "-s USE_SDL=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets")
+    set(SDL_FLAGS "-s USE_SDL=2 --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets")
     set(CMAKE_EXECUTABLE_SUFFIX ".html" PARENT_SCOPE)
 else()
     find_package(SDL2 REQUIRED)
@@ -22,6 +22,7 @@ set(platform_linker_flags "" PARENT_SCOPE)
 
 set(platform_sources
     # soloud
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/soloud/src/audiosource/wav/dr_impl.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/soloud/src/audiosource/wav/soloud_wav.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/soloud/src/audiosource/wav/stb_vorbis.c
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/soloud/src/backend/sdl2_static/soloud_sdl2_static.cpp

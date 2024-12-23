@@ -48,6 +48,7 @@ set(sources
     model/Track.cpp
     model/Types.cpp
     model/UserScale.cpp
+    model/UserSettings.cpp
     # ui
     ui/Controller.cpp
     ui/ControllerManager.cpp
@@ -56,12 +57,14 @@ set(sources
     ui/Page.cpp
     ui/PageManager.cpp
     ui/Ui.cpp
+    ui/Screensaver.cpp
     # ui/controllers/launchpad
     ui/controllers/launchpad/LaunchpadController.cpp
     ui/controllers/launchpad/LaunchpadDevice.cpp
     ui/controllers/launchpad/LaunchpadMk2Device.cpp
     ui/controllers/launchpad/LaunchpadMk3Device.cpp
     ui/controllers/launchpad/LaunchpadProDevice.cpp
+    ui/controllers/launchpad/LaunchpadProMk3Device.cpp
     # ui/pages
     ui/pages/AsteroidsPage.cpp
     ui/pages/BasePage.cpp

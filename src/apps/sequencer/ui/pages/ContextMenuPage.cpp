@@ -3,27 +3,40 @@
 #include "ui/painters/WindowPainter.h"
 
 #include "core/math/Math.h"
+#include <cstdint>
 
 ContextMenuPage::ContextMenuPage(PageManager &manager, PageContext &context) :
     BasePage(manager, context)
-{}
+{}    
+
+uint32_t lastTicks;
 
 void ContextMenuPage::show(ContextMenuModel &contextMenuModel, ResultCallback callback) {
     _contextMenuModel = &contextMenuModel;
     _callback = callback;
+    lastTicks = os::ticks();
     BasePage::show();
 }
 
 void ContextMenuPage::draw(Canvas &canvas) {
+
+
+    uint32_t currentTicks = os::ticks();
+    uint32_t deltaTicks = currentTicks - lastTicks;
+    if (deltaTicks > os::time::ms(2000) && _contextMenuModel->doubleClick()) {
+        close();
+    }
+
+
     canvas.setFont(Font::Tiny);
     canvas.setBlendMode(BlendMode::Set);
 
     const int BarHeight = 12;
 
-    canvas.setColor(0x0);
+    canvas.setColor(Color::None);
     canvas.fillRect(0, Height - BarHeight - 1, Width, BarHeight + 1);
 
-    canvas.setColor(0xf);
+    canvas.setColor(Color::Bright);
     canvas.hline(0, Height - BarHeight, Width);
     for (int i = 1; i < 5; ++i) {
         canvas.vline((Width * i) / 5, Height - BarHeight, BarHeight);
@@ -42,8 +55,10 @@ void ContextMenuPage::draw(Canvas &canvas) {
             // int iconSize = 16;
             // canvas.drawRect(x + (w - iconSize) / 2, 32 + 4, iconSize, iconSize);
 
-            canvas.setColor(enabled ? 0xf : 0x7);
-            canvas.drawText(x + (w - canvas.textWidth(item.title) + 1) / 2, Height - 4, item.title);
+            if (item.title) {
+                canvas.setColor(enabled ? Color::Bright : Color::Medium);
+                canvas.drawText(x + (w - canvas.textWidth(item.title) + 1) / 2, Height - 4, item.title);
+            }
         }
     }
 }
@@ -51,6 +66,9 @@ void ContextMenuPage::draw(Canvas &canvas) {
 void ContextMenuPage::keyUp(KeyEvent &event) {
     const auto &key = event.key();
 
+    if (_contextMenuModel->doubleClick()) {
+        return;
+    }
     if (!key.pageModifier() || !key.shiftModifier()) {
         close();
         event.consume();

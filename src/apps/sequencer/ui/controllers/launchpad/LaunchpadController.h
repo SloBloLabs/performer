@@ -4,6 +4,7 @@
 #include "LaunchpadMk2Device.h"
 #include "LaunchpadMk3Device.h"
 #include "LaunchpadProDevice.h"
+#include "LaunchpadProMk3Device.h"
 
 #include "ui/Controller.h"
 
@@ -93,12 +94,15 @@ private:
     void sequenceDraw();
     void sequenceButton(const Button &button, ButtonAction action);
 
+    bool isNoteKeyboardPressed();
+
     void sequenceUpdateNavigation();
 
     void sequenceSetLayer(int row, int col);
     void sequenceSetFirstStep(int step);
     void sequenceSetLastStep(int step);
     void sequenceSetRunMode(int mode);
+    void sequenceSetFollowMode(int col);
     void sequenceToggleStep(int row, int col);
     void sequenceToggleNoteStep(int row, int col);
     void sequenceEditStep(int row, int col);
@@ -108,9 +112,13 @@ private:
     void sequenceDrawLayer();
     void sequenceDrawStepRange(int highlight);
     void sequenceDrawRunMode();
+    void sequenceDrawFollowMode();
     void sequenceDrawSequence();
     void sequenceDrawNoteSequence();
     void sequenceDrawCurveSequence();
+
+    void manageCircuitKeyboard(const Button &button);
+    void drawRunningKeyboardCircuit(int row, int col, const NoteSequence::Step &step, const Scale &scale, int rootNote);
 
     // Pattern mode
     void patternEnter();
@@ -143,6 +151,7 @@ private:
     void drawNoteSequenceNotes(const NoteSequence &sequence, NoteSequence::Layer layer, int currentStep);
     void drawCurveSequenceBars(const CurveSequence &sequence, CurveSequence::Layer layer, int currentStep);
     void drawCurveSequenceDots(const CurveSequence &sequence, CurveSequence::Layer layer, int currentStep);
+    void followModeAction(int currentStep, int);
     void drawBar(int row, int value, bool active, bool current);
 
     // Led handling
@@ -152,13 +161,13 @@ private:
     void setSceneLed(int col, Color color);
 
     template<typename T>
-    void setButtonLed(Color color) {
-        _device->setLed(T::row, T::col, color);
+    void setButtonLed(Color color, int style) {
+        _device->setLed(T::row, T::col, color, style);
     }
 
     template<typename T>
-    void mirrorButton() {
-        setButtonLed<T>(buttonState(T::row, T::col) ? color(true, true) : color(false, false));
+    void mirrorButton(int style) {
+        setButtonLed<T>(buttonState(T::row, T::col) ? color(true, true) : color(false, false), style);
     }
 
     // Button handling
@@ -172,6 +181,10 @@ private:
         return buttonState(T::row, T::col);
     }
 
+    int getMapValue(const std::map<int, int> map, int index) {
+        return map.find(index) != map.end() ? map.at(index) : -1;
+    }
+
     struct {
         Button lastButton;
         uint32_t lastTicks = 0;
@@ -179,7 +192,8 @@ private:
     } _buttonTracker;
 
     Project &_project;
-    Container<LaunchpadDevice, LaunchpadMk2Device, LaunchpadMk3Device, LaunchpadProDevice> _deviceContainer;
+    
+    Container<LaunchpadDevice, LaunchpadMk2Device, LaunchpadMk3Device, LaunchpadProDevice, LaunchpadProMk3Device> _deviceContainer;
     LaunchpadDevice *_device;
     Mode _mode = Mode::Sequence;
 

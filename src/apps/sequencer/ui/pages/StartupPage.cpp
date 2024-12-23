@@ -28,13 +28,15 @@ void StartupPage::draw(Canvas &canvas) {
         close();
     }
 
-    canvas.setColor(0);
+    canvas.setColor(Color::None);
     canvas.fill();
 
-    canvas.setColor(0xf);
+    canvas.setColor(Color::Bright);
 
     canvas.setFont(Font::Small);
     canvas.drawTextCentered(0, 0, Width, 32, "PERFORMER");
+    canvas.setFont(Font::Tiny);
+    canvas.drawTextCentered(0, 20, Width, 8, "mebitek custom firmware");
 
     canvas.setFont(Font::Tiny);
     canvas.drawTextCentered(0, 32, Width, 32, "LOADING ...");

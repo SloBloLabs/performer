@@ -43,6 +43,7 @@ public:
     virtual void editParam(int index, int value, bool shift) = 0;
     virtual void printParam(int index, StringBuilder &str) const = 0;
 
+    virtual void init() {}
 
     virtual void revert() {
         _builder.revert();
@@ -50,7 +51,7 @@ public:
 
     virtual void update() = 0;
 
-    static Generator *execute(Generator::Mode mode, SequenceBuilder &builder);
+    static Generator *execute(Generator::Mode mode, SequenceBuilder &builder, std::bitset<CONFIG_STEP_COUNT> &selected);
 
 protected:
     SequenceBuilder &_builder;
