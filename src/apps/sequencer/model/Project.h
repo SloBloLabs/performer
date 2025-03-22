@@ -271,23 +271,46 @@ public:
     const MidiSourceConfig &midiInputSource() const { return _midiInputSource; }
           MidiSourceConfig &midiInputSource()       { return _midiInputSource; }
 
-    // midiPgmChange
+    // midiIntegrationMode
 
-    void editMidiPgmChange(int value, bool shift) {
-        _midiPgmChange = value == 1;
+    void editMidiIntegrationMode(int value, bool shift) {
+        _midiIntegrationMode = ModelUtils::adjustedEnum(_midiIntegrationMode, value);
     }
 
-    void printMidiPgmChange(StringBuilder &str) const {
-        if (_midiPgmChange) str("On");
-        else str("Off");
+    void printMidiIntegrationMode(StringBuilder &str) const {
+        str(Types::midiIntegrationModeName(_midiIntegrationMode));
     }
 
-    void setMidiPgmChangeEnabled(bool enabled) {
-        _midiPgmChange = enabled;
+    void setMidiIntegrationMode(Types::MidiIntegrationMode midiIntegrationMode) {
+        _midiIntegrationMode = midiIntegrationMode;
     }
 
-    bool midiPgmChangeEnabled() const { return _midiPgmChange; }
+    bool midiIntegrationProgramChangesEnabled() const {
+        return _midiIntegrationMode == Types::MidiIntegrationMode::ProgramChanges
+               || _midiIntegrationMode == Types::MidiIntegrationMode::Malekko;
+    }
 
+    bool midiIntegrationMalekkoEnabled() const {
+        return _midiIntegrationMode == Types::MidiIntegrationMode::Malekko;
+    }
+
+    // midiProgramOffset
+
+    void editMidiProgramOffset(int value, bool shift) {
+        _midiProgramOffset += value;
+    }
+
+    void printMidiProgramOffset(StringBuilder &str) const {
+        str("%d", _midiProgramOffset);
+    }
+
+    void setMidiProgramOffset(int midiProgramOffset) {
+        _midiProgramOffset = midiProgramOffset;
+    }
+
+    int midiProgramOffset() {
+        return _midiProgramOffset;
+    }
     // cvGateInput
 
     Types::CvGateInput cvGateInput() const { return _cvGateInput; }
@@ -385,6 +408,86 @@ public:
     const MidiOutput &midiOutput() const { return _midiOutput; }
           MidiOutput &midiOutput()       { return _midiOutput; }
 
+    const int stepsToStop() const { return _stepsToStop;}
+          int stepsToStop()       { return _stepsToStop; }
+
+    void setStepsToStop(int steps) {
+        _stepsToStop = clamp(steps, 0 , CONFIG_STEP_COUNT);
+    }
+
+    void editStepsToStop(int steps) {
+        int val = (steps + stepsToStop());
+        if (val > 64) val  = 0;
+        if (val < 0) val = 64;
+        setStepsToStop(val);
+    }
+
+    void printStepsToStop(StringBuilder &str) const {
+        if (_stepsToStop == 0) {
+            str("Off");
+        } else {
+            str("%d", stepsToStop());
+        }
+    }
+
+    const int recordDelay() const { return _recordDelay;}
+          int recordDelay()       { return _recordDelay; }
+
+    void setRecordDelay(int steps) {
+        _recordDelay = clamp(steps, 0 , CONFIG_STEP_COUNT);
+    }
+
+    void editRecordDelay(int steps) {
+        int val = (steps + recordDelay()) % 64;
+        if (val > 64) val  = 0;
+        if (val < 0) val = 64;
+        setRecordDelay(val);
+    }
+
+    void printRecordDelay(StringBuilder &str) const {
+        if (_recordDelay == 0) {
+            str("Off");
+        } else {
+            str("%d", recordDelay());
+        }
+    }
+
+    // reset cv on stop
+
+    bool resetCvOnStop() {
+        return _resetCvOnStop;
+    }
+
+    void editResetCvOnStop(int value) {
+        _resetCvOnStop = value == 1;
+    }
+
+    void printResetCvOnStop(StringBuilder &str) const {
+        if (_resetCvOnStop) str("On");
+        else str("Off");
+    }
+
+    void setResetCvOnStop(bool enabled) {
+        _resetCvOnStop = enabled;
+    }
+
+    // use multi cv recording
+
+    bool useMultiCvRec() const { return _useMultiCv;}
+
+    void editUseMultiCvRec(int value) {
+        _useMultiCv = value == 1;
+    }
+
+    void printUseMultiCvRec(StringBuilder &str) const {
+        if (_useMultiCv) str("On");
+        else str("Off");
+    }
+
+    void setUseMultiCvRec(bool enabled) {
+        _useMultiCv = enabled;
+    }
+
     // selectedTrackIndex
 
     int selectedTrackIndex() const { return _selectedTrackIndex; }
@@ -403,6 +506,15 @@ public:
                     break;
                 case Track::TrackMode::MidiCv:
                     StringUtils::copy(_selectedTrackName, selectedTrack().midiCvTrack().name(), sizeof(_selectedTrackName));
+                    break;
+                case Track::TrackMode::Stochastic:
+                    StringUtils::copy(_selectedTrackName, selectedTrack().stochasticTrack().name(), sizeof(_selectedTrackName));
+                    break;
+                case Track::TrackMode::Logic:
+                    StringUtils::copy(_selectedTrackName, selectedTrack().logicTrack().name(), sizeof(_selectedTrackName));
+                    break;
+                case Track::TrackMode::Arp:
+                    StringUtils::copy(_selectedTrackName, selectedTrack().arpTrack().name(), sizeof(_selectedTrackName));
                     break;
                 case Track::TrackMode::Last:
                     break;
@@ -438,6 +550,21 @@ public:
     NoteSequence::Layer selectedNoteSequenceLayer() const { return _selectedNoteSequenceLayer; }
     void setSelectedNoteSequenceLayer(NoteSequence::Layer layer) { _selectedNoteSequenceLayer = layer; }
 
+    // selectedStochasticSequenceLayer
+
+    StochasticSequence::Layer selectedStochasticSequenceLayer() const { return _selectedStochasticSequenceLayer; }
+    void setSelectedStochasticSequenceLayer(StochasticSequence::Layer layer) { _selectedStochasticSequenceLayer = layer; }
+
+    // selectedLogicSequenceLayer
+
+    LogicSequence::Layer selectedLogicSequenceLayer() const { return _selectedLogicSequenceLayer; }
+    void setSelectedLogicSequenceLayer(LogicSequence::Layer layer) { _selectedLogicSequenceLayer = layer; }
+
+    // selectedArpSequenceLayer
+
+    ArpSequence::Layer selectedArpSequenceLayer() const { return _selectedArpSequenceLayer; }
+    void setSelectedArpSequenceLayer(ArpSequence::Layer layer) { _selectedArpSequenceLayer = layer; }
+    
     // selectedCurveSequenceLayer
 
     CurveSequence::Layer selectedCurveSequenceLayer() const { return _selectedCurveSequenceLayer; }
@@ -475,6 +602,44 @@ public:
 
     const CurveSequence &selectedCurveSequence() const { return curveSequence(_selectedTrackIndex, selectedPatternIndex()); }
           CurveSequence &selectedCurveSequence()       { return curveSequence(_selectedTrackIndex, selectedPatternIndex()); }
+
+    // stochasticSequence
+
+    const StochasticSequence &stochasticSequence(int trackIndex, int patternIndex) const { return _tracks[trackIndex].stochasticTrack().sequence(patternIndex); }
+          StochasticSequence &stochasticSequence(int trackIndex, int patternIndex)       { return _tracks[trackIndex].stochasticTrack().sequence(patternIndex); }
+
+    // selectedStochasticSequence
+
+    const StochasticSequence &selectedStochasticSequence() const { return stochasticSequence(_selectedTrackIndex, selectedPatternIndex()); }
+          StochasticSequence &selectedStochasticSequence()       { return stochasticSequence(_selectedTrackIndex, selectedPatternIndex()); }
+
+    // logicSequence
+    
+    const LogicSequence &logicSequence(int trackIndex, int patternIndex) const { return _tracks[trackIndex].logicTrack().sequence(patternIndex); }
+          LogicSequence &logicSequence(int trackIndex, int patternIndex)       { return _tracks[trackIndex].logicTrack().sequence(patternIndex); }
+
+    // selectedLogicSequence
+
+    const LogicSequence &selectedLogicSequence() const { return logicSequence(_selectedTrackIndex, selectedPatternIndex()); }
+          LogicSequence &selectedLogicSequence()       { return logicSequence(_selectedTrackIndex, selectedPatternIndex()); }
+
+    void setselectedLogicSequence(LogicSequence seq) {
+        _tracks[_selectedTrackIndex].logicTrack().setSequence(selectedPatternIndex(), seq);
+    }
+
+    // arpSequence
+    
+    const ArpSequence &arpSequence(int trackIndex, int patternIndex) const { return _tracks[trackIndex].arpTrack().sequence(patternIndex); }
+          ArpSequence &arpSequence(int trackIndex, int patternIndex)       { return _tracks[trackIndex].arpTrack().sequence(patternIndex); }
+
+    // selectedArpSequence
+
+    const ArpSequence &selectedArpSequence() const { return arpSequence(_selectedTrackIndex, selectedPatternIndex()); }
+          ArpSequence &selectedArpSequence()       { return arpSequence(_selectedTrackIndex, selectedPatternIndex()); }          
+
+    void setSelectedArpSequence(ArpSequence seq) {
+        _tracks[_selectedTrackIndex].arpTrack().setSequence(selectedPatternIndex(), seq);
+    }
 
     //----------------------------------------
     // Routing
@@ -527,7 +692,8 @@ private:
     Types::MonitorMode _monitorMode;
     Types::MidiInputMode _midiInputMode;
     MidiSourceConfig _midiInputSource;
-    bool _midiPgmChange;
+    Types::MidiIntegrationMode _midiIntegrationMode;
+    uint8_t _midiProgramOffset;
     Types::CvGateInput _cvGateInput;
     Types::CurveCvInput _curveCvInput;
 
@@ -540,12 +706,21 @@ private:
     Routing _routing;
     MidiOutput _midiOutput;
 
+    uint8_t _stepsToStop;
+    uint8_t _recordDelay;
+
+    bool _resetCvOnStop;
+    bool _useMultiCv;
+
     int _selectedTrackIndex = 0;
     int _selectedPatternIndex = 0;
 
     char _selectedTrackName[FileHeader::NameLength+1] = "";
     NoteSequence::Layer _selectedNoteSequenceLayer = NoteSequence::Layer(0);
     CurveSequence::Layer _selectedCurveSequenceLayer = CurveSequence::Layer(0);
+    StochasticSequence::Layer _selectedStochasticSequenceLayer = StochasticSequence::Layer(10);
+    LogicSequence::Layer _selectedLogicSequenceLayer = LogicSequence::Layer(0);
+    ArpSequence::Layer _selectedArpSequenceLayer = ArpSequence::Layer(0);
 
     Observable<Event, 2> _observable;
 };

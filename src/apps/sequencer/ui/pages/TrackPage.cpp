@@ -6,6 +6,8 @@
 #include "ui/painters/WindowPainter.h"
 
 #include "core/utils/StringBuilder.h"
+#include <array>
+#include <vector>
 
 enum class ContextAction {
     Init,
@@ -92,7 +94,28 @@ void TrackPage::keyPress(KeyPressEvent &event) {
                         _project.selectedTrack().midiCvTrack().setName(text);
                     }
                 });
-                break;      
+                break;   
+            case Track::TrackMode::Stochastic:
+                _manager.pages().textInput.show("NAME:", _stochasticTrack->name(), StochasticTrack::NameLength, [this] (bool result, const char *text) {
+                    if (result) {
+                        _project.selectedTrack().stochasticTrack().setName(text);
+                    }
+                 });
+            break;   
+            case Track::TrackMode::Logic:
+                _manager.pages().textInput.show("NAME:", _logicTrack->name(), LogicTrack::NameLength, [this] (bool result, const char *text) {
+                    if (result) {
+                        _project.selectedTrack().logicTrack().setName(text);
+                    }
+                 });
+            break;  
+            case Track::TrackMode::Arp:
+                _manager.pages().textInput.show("NAME:", _arpTrack->name(), ArpTrack::NameLength, [this] (bool result, const char *text) {
+                    if (result) {
+                        _project.selectedTrack().arpTrack().setName(text);
+                    }
+                 });
+            break;  
             case Track::TrackMode::Last:
                 break;     
         }
@@ -100,6 +123,67 @@ void TrackPage::keyPress(KeyPressEvent &event) {
     return;
 }
 
+if (key.is(Key::Encoder) && selectedRow() == 14) {
+
+    if (_project.selectedTrack().trackMode() == Track::TrackMode::Note) {
+        std::vector<int> availableLogicTracks;
+        for (int i =0; i<8; ++i) {
+            if (_project.track(i).trackMode() == Track::TrackMode::Logic && i > _project.selectedTrack().trackIndex()) {
+                if ((_project.track(i).logicTrack().inputTrack1() == -1 && _project.track(i).logicTrack().inputTrack2() == -1) || 
+                    (_project.track(i).logicTrack().inputTrack1() == -1 || _project.track(i).logicTrack().inputTrack2() == -1)) {
+                        availableLogicTracks.insert(availableLogicTracks.end(), i); 
+                } 
+            } 
+        }
+        _noteTrackListModel.setAvailableLogicTracks(availableLogicTracks);
+    }
+}
+
+if (key.is(Key::Encoder) && selectedRow() == 15) {
+    
+
+        if (_project.selectedTrack().trackMode() == Track::TrackMode::Note) {
+            int logicTrackIndex = _project.selectedTrack().noteTrack().logicTrack();
+            if (logicTrackIndex!=-1) {
+
+                const auto logicTrack = _project.track(logicTrackIndex).logicTrack();
+                if ((logicTrack.inputTrack1()!=-1 && logicTrack.inputTrack1() != _project.selectedTrackIndex()) 
+                    && (logicTrack.inputTrack2()!=-1 && logicTrack.inputTrack2() != _project.selectedTrackIndex())) {
+                    return;
+                }
+
+                const auto tmpVal = _project.selectedTrack().noteTrack().logicTrackInput();
+
+
+                if (tmpVal == 0 && logicTrack.inputTrack1() != -1 && logicTrack.inputTrack1() != _project.selectedTrack().trackIndex()) {
+                    _project.selectedTrack().noteTrack().setLogicTrackInput(tmpVal+1);
+                } else if (tmpVal == 0 && logicTrack.inputTrack1() == -1 && logicTrack.inputTrack1() == _project.selectedTrack().trackIndex()) {
+                    _project.selectedTrack().noteTrack().setLogicTrackInput(tmpVal);
+                }
+                if (tmpVal == 1 && logicTrack.inputTrack2() != -1 && logicTrack.inputTrack2() != _project.selectedTrack().trackIndex()) {
+                    _project.selectedTrack().noteTrack().setLogicTrackInput(tmpVal-1);
+                } else if (tmpVal == 1 && logicTrack.inputTrack2() == -1 && logicTrack.inputTrack1() == _project.selectedTrack().trackIndex()) {
+                    _project.selectedTrack().noteTrack().setLogicTrackInput(tmpVal);
+                }
+
+
+
+                if (_project.selectedTrack().noteTrack().logicTrackInput() == 0) {
+                    _project.track(logicTrackIndex).logicTrack().setInputTrack1(_project.selectedTrack().trackIndex());
+                } else if (_project.selectedTrack().noteTrack().logicTrackInput() == 1) {
+                    _project.track(logicTrackIndex).logicTrack().setInputTrack2(_project.selectedTrack().trackIndex());
+                } else {
+                    if (_project.track(logicTrackIndex).logicTrack().inputTrack1() == _project.selectedTrack().trackIndex()) {
+                        _project.track(logicTrackIndex).logicTrack().setInputTrack1(-1);
+                    }
+                    if (_project.track(logicTrackIndex).logicTrack().inputTrack2() == _project.selectedTrack().trackIndex()) {
+                        _project.track(logicTrackIndex).logicTrack().setInputTrack2(-1);
+                    }
+                }
+            }
+        }
+
+}
 
     ListPage::keyPress(event);
 }
@@ -123,6 +207,21 @@ void TrackPage::setTrack(Track &track) {
         newListModel = &_midiCvTrackListModel;
         _midiCvTrack = &track.midiCvTrack();
         break;
+    case Track::TrackMode::Stochastic:
+        _stochasticTrackListModel.setTrack(track.stochasticTrack());
+        newListModel = &_stochasticTrackListModel;
+        _stochasticTrack = &track.stochasticTrack();
+        break;
+    case Track::TrackMode::Logic:
+        _logicTrackListModel.setTrack(track.logicTrack());
+        newListModel = &_logicTrackListModel;
+        _logicTrack = &track.logicTrack();
+        break;   
+    case Track::TrackMode::Arp:
+        _arpTrackListModel.setTrack(track.arpTrack());
+        newListModel = &_arpTrackListModel;
+        _arpTrack = &track.arpTrack();
+        break;   
     case Track::TrackMode::Last:
         ASSERT(false, "invalid track mode");
         break;

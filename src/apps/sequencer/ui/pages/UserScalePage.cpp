@@ -215,3 +215,24 @@ void UserScalePage::loadUserScaleFromSlot(int slot) {
         _engine.resume();
     });
 }
+
+void UserScalePage::functionShortcuts(KeyPressEvent event) {
+    {
+        const auto &key = event.key();
+        if (key.isFunction() && key.is(Key::F0) && event.count() == 2) {
+            _manager.pages().top.setMode(TopPage::Mode::Project);
+        }
+
+        if (key.isFunction() && key.is(Key::F1) && event.count() == 2) {
+            _manager.pages().top.setMode(TopPage::Mode::Layout);
+        }
+
+        if (key.isFunction() && key.is(Key::F2) && event.count() == 2) {
+            _manager.pages().top.setMode(TopPage::Mode::Routing);
+        }
+
+        if (key.isFunction() && key.is(Key::F3) && event.count() == 2) {
+            _manager.pages().top.setMode(TopPage::Mode::MidiOutput);
+        }
+    }
+}

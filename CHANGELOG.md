@@ -1,6 +1,91 @@
 # Changelog
 
-# v0.1.4.48 (30 January 2024)
+# v0.3.2 ()
+- issue #123 - request - launchpad X step page responsive
+
+# v0.3.1 (29 May 2024)
+- issue #111 - fix program change
+- issue #112 - fix launchpad follow mode
+- issue #115 - follow pattern is now saved on project
+- issue #116 - fix F1-F5 shortcut
+- issue #117 - fix curve cv problem
+- issue #118 - fix file stack overflow
+- fix fill display 
+- fix stochastic reseed behaviour
+- fix arp track copy pattern
+
+
+# v0.3.0 (02 May 2024)
+- Arpeggiator Track
+- increase stochastic rest proability to 15 steps 
+- logic track fast input visulaization (press shift)
+- fix clipboard copy track
+- fix logic gate probability
+- fix rotate steps [@glibersat](https://github.com/glibersat)
+- keep sequence names when copy and paste
+- issue #100 - reorganize quick functions shortcuts
+- issue #101 - reset cv in stop parameter
+- integrate Malekko integration 
+
+> **testers** :
+>  
+> mebitek, Jil, Guillaume Libersat, XQSTKRPS, P.M. Lenneskog
+
+
+# v0.2.2 (20 March 2024)
+- Logic Track
+    - per step gate logic operators
+    - per step note logic operators
+- fix shift steps feature [@glibersat](https://github.com/glibersat)
+- step recorder "move step forward" shortcuts
+- step recorder "current step" cv routable, respond to gate (5ms)
+- curve track cv contrallable min and max
+- Overview page improvements
+- add trigger curve shape
+- add filter note parameter
+
+> **testers** :
+>  
+> mebitek, Jil, Guillaume Libersat, Andreas Hieninger, P.M. Lenneskog
+
+# v0.2.1 (4 March 2024)
+- issue #80 - Repeat Function Issue - Metropolix Mode 
+- issue #82 - Fatal error when pressing STEP button and turning encoder
+- issue #83 - Restart when loop is on 64 steps
+- issue #88 - Copy Loop from STOCHASTIC channel to a NOTE channel
+- issue #90 - the first note is never recorded
+- fix user settings
+
+> **testers** :
+>  
+> mebitek, Jil, Andreas Hieninger
+
+# v0.2.0 (29 Febrary 2024)
+- Stochastic Track
+    - global octave modifier
+    - launchpad control general octave
+    - loop and lock loop
+    - reseed
+    - rest probability 2,4,8 steps
+    - global gate length modifier
+    - clipboard actions
+    - generators  
+- Load/Save Sequence to use a sequence library (fast switch on loading)
+- Launchpad Performance Mode `8`+`3` (`2`+`GRID2` -> quick set lenght sequence; `2`+`GRID1` -> overview page )
+- Submenu shortcuts (double click F[1-5] to enter project, layout, routing, midi out, user scale)
+- Page buttons on launchpad circuit note edit
+- Extend gate Lenght to 4bits [@glibersat](https://github.com/glibersat)
+- Multi Curve CV Recording (cv curve input has been moved in track page)
+- quick change octave shortuct (step+F[1-5]) 1-5V
+- quick gate accent launchpad control on gate page and circuit page (`7`+`GRID`)
+- add steps to stop feature in project page. Once started when the engine reaches the steps to stop value the clock will stop.
+- improved overview page. quick edit tracks
+
+> **testers** :
+>  
+> mebitek, Guillaume Libersat, Nick Ansell, XponentOne, dblu2000, hales2488, XQSTKRPS, KittenVillage, Andreas Hieninger
+
+# v0.1.48 (30 January 2024)
 - Moving steps in a sequence
 - INIT by step selected
 - smart cycling on patter follow modes (check if launchpad is connected)
@@ -12,10 +97,10 @@
 - Curve mode backward run modes play reverse playback
 - Bypass the Voltage Table in specific steps of the sequence
 
-# v0.1.4.47 (24 January 2024)
+# v0.1.47 (24 January 2024)
 - launchpad circuit mode improvements
 - random generator: random seed just on init method
-- patter follow
+- patter follow [@glibersat](https://github.com/glibersat)
 - pattern chain quick shortcut from pattern page
 - scale edit: scales are changed only if the encoder is pressed
 - on scale change the sequence notes are changed according to the previous scale. if a note in the previous scale is also present in the new scale the value is preeserved. if it is not present the nearest note in the new scale will be selected
@@ -23,7 +108,7 @@
 
 ## v0.1.46 (4 January 2024)
 
-- UI note edit page reaggment
+- UI note edit page reaggment [@aclangor](https://github.com/aclangor)
 - song sync with clock
 - fix reverse shape feature
 - add new shapes

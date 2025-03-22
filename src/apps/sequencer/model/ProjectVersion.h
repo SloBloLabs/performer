@@ -99,6 +99,22 @@ enum ProjectVersion {
     // add bypass scale
     Version34 = 34,
 
+    // add sequence name
+    Version35 = 35,
+
+    // change note length form 3 to 4 bits
+    Version36 = 36,
+
+    // add logic track
+    Version37 = 37,
+
+    // add arp track and malekko integration
+    Version38 = 38,
+
+    // add pattern follow
+    Version39 = 39,
+
+
     // automatically derive latest version
     Last,
     Latest = Last - 1,

@@ -2,6 +2,11 @@
 #include "ProjectVersion.h"
 
 #include "ModelUtils.h"
+#include "Types.h"
+#include "Routing.h"
+
+#include "os/os.h"
+#include <cstdint>
 
 Types::LayerRange NoteSequence::layerRange(Layer layer) {
     #define CASE(_layer_) \
@@ -170,7 +175,7 @@ void NoteSequence::Step::setLayerValue(Layer layer, int value) {
         setStageRepeats(value);
         break;
     case Layer::StageRepeatsMode:
-        setStageRepeatsMode(static_cast<NoteSequence::StageRepeatMode>(value));
+        setStageRepeatsMode(static_cast<Types::StageRepeatMode>(value));
         break;
     case Layer::Last:
         break;
@@ -195,7 +200,7 @@ void NoteSequence::Step::clear() {
     setNoteVariationProbability(NoteVariationProbability::Max);
     setCondition(Types::Condition::Off);
     setStageRepeats(0);
-    setStageRepeatsMode(StageRepeatMode::Each);
+    setStageRepeatsMode(Types::StageRepeatMode::Each);
 }
 
 void NoteSequence::Step::write(VersionedSerializedWriter &writer) const {
@@ -204,6 +209,7 @@ void NoteSequence::Step::write(VersionedSerializedWriter &writer) const {
 }
 
 void NoteSequence::Step::read(VersionedSerializedReader &reader) {
+
     if (reader.dataVersion() < ProjectVersion::Version27) {
         reader.read(_data0.raw);
         reader.readAs<uint16_t>(_data1.raw);
@@ -219,9 +225,20 @@ void NoteSequence::Step::read(VersionedSerializedReader &reader) {
     } else {
         reader.read(_data0.raw);
         reader.read(_data1.raw);
+        if (reader.dataVersion() < ProjectVersion::Version36) {
+            bool bypassScale = (bool)((_data0.raw >> 31) & 0x1);
+
+            _data0.raw = (_data0.raw & 0x3 ) | (((_data0.raw ) & 0xFFFFFFFC) << 1);
+            _data1.raw = 0x7FFFFFFF & (_data1.raw << 1);
+            _data1.bypassScale = bypassScale;
+        }
+
         if (reader.dataVersion() < ProjectVersion::Version34) {
             setBypassScale(false);
         }
+
+
+
     }
 }
 
@@ -246,12 +263,32 @@ void NoteSequence::writeRouted(Routing::Target target, int intValue, float float
     case Routing::Target::LastStep:
         setLastStep(intValue, true);
         break;
+    case Routing::Target::CurrentRecordStep:
+        if (_gate) {
+            if (floatValue < 2.f) {
+                // gate off
+                _gate = 0;
+                _lastGateOff = os::ticks();
+            }
+        } else {
+            if (floatValue > 3.f) {
+                if (os::ticks() - _lastGateOff >= GateOnDelay) {
+                    // gate on
+                    _gate = 1;
+                    setCurrentRecordStep(currentRecordStep()+1,true);
+                }
+            } else {
+                _lastGateOff = os::ticks();
+            }
+        }
+        break;
     default:
         break;
     }
 }
 
 void NoteSequence::clear() {
+    setName("INIT");
     setScale(-1);
     setRootNote(-1);
     setDivisor(12);
@@ -259,6 +296,7 @@ void NoteSequence::clear() {
     setRunMode(Types::RunMode::Forward);
     setFirstStep(0);
     setLastStep(15);
+    setCurrentRecordStep(0);
 
     clearSteps();
 }
@@ -311,9 +349,9 @@ void NoteSequence::setNotes(std::initializer_list<int> notes) {
 
 void NoteSequence::shiftSteps(const std::bitset<CONFIG_STEP_COUNT> &selected, int direction) {
     if (selected.any()) {
-        ModelUtils::shiftSteps(_steps, selected, direction);
+        ModelUtils::shiftSteps(_steps, selected, firstStep(), lastStep()+1, direction);
     } else {
-        ModelUtils::shiftSteps(_steps, firstStep(), lastStep(), direction);
+        ModelUtils::shiftSteps(_steps, firstStep(), lastStep()+1, direction);
     }
 }
 
@@ -332,9 +370,12 @@ void NoteSequence::write(VersionedSerializedWriter &writer) const {
     writer.write(_lastStep.base);
 
     writeArray(writer, _steps);
+    writer.write(_name, NameLength + 1);
+    writer.write(_slot);
+    writer.writeHash();
 }
 
-void NoteSequence::read(VersionedSerializedReader &reader) {
+bool NoteSequence::read(VersionedSerializedReader &reader) {
     reader.read(_scale.base);
     reader.read(_rootNote.base);
     if (reader.dataVersion() < ProjectVersion::Version10) {
@@ -348,4 +389,17 @@ void NoteSequence::read(VersionedSerializedReader &reader) {
     reader.read(_lastStep.base);
 
     readArray(reader, _steps);
+
+    if (reader.dataVersion() >= ProjectVersion::Version35) {
+        reader.read(_name, NameLength + 1, ProjectVersion::Version35);
+        reader.read(_slot);
+        bool success = reader.checkHash();
+        if (!success) {
+            clear();
+        }
+
+        return success;
+    } else {
+        return true;
+    }
 }

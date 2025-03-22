@@ -1,5 +1,6 @@
 #include "ProjectPage.h"
 
+#include "TopPage.h"
 #include "ui/LedPainter.h"
 #include "ui/pages/Pages.h"
 #include "ui/painters/WindowPainter.h"
@@ -31,6 +32,7 @@ ProjectPage::ProjectPage(PageManager &manager, PageContext &context) :
 {}
 
 void ProjectPage::enter() {
+    _listModel.resetScale();
 }
 
 void ProjectPage::exit() {
@@ -144,6 +146,7 @@ void ProjectPage::initProject() {
     _manager.pages().confirmation.show("ARE YOU SURE?", [this] (bool result) {
         if (result) {
             _engine.suspend();
+            _listModel.initScale();
             _project.clear();
             showMessage("PROJECT INITIALIZED");
             _engine.resume();
@@ -229,4 +232,26 @@ void ProjectPage::loadProjectFromSlot(int slot) {
         _manager.pages().busy.close();
         _engine.resume();
     });
+}
+
+void ProjectPage::functionShortcuts(KeyPressEvent event) {
+    {
+        const auto &key = event.key();
+
+        if (key.isFunction() && key.is(Key::F1) && event.count() == 2) {
+            _manager.pages().top.setMode(TopPage::Mode::Layout);
+                }
+
+        if (key.isFunction() && key.is(Key::F2) && event.count() == 2) {
+            _manager.pages().top.setMode(TopPage::Mode::Routing);
+        }
+
+        if (key.isFunction() && key.is(Key::F3) && event.count() == 2) {
+            _manager.pages().top.setMode(TopPage::Mode::MidiOutput);
+        }
+
+        if (key.isFunction() && key.is(Key::F4) && event.count() == 2) {
+            _manager.pages().top.setMode(TopPage::Mode::UserScale);
+        }
+    }
 }

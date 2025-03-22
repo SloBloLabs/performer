@@ -38,9 +38,12 @@ void Project::clear() {
     setMonitorMode(Types::MonitorMode::Always);
     setRecordMode(Types::RecordMode::Overdub);
     setMidiInputMode(Types::MidiInputMode::All);
-    setMidiPgmChangeEnabled(false);
+    setMidiIntegrationMode(Types::MidiIntegrationMode::None);
+    setMidiProgramOffset(0);
     setCvGateInput(Types::CvGateInput::Off);
     setCurveCvInput(Types::CurveCvInput::Off);
+    setResetCvOnStop(true);
+    setUseMultiCvRec(true);
 
     _clockSetup.clear();
 
@@ -111,8 +114,9 @@ void Project::write(VersionedSerializedWriter &writer) const {
     writer.write(_monitorMode);
     writer.write(_recordMode);
     writer.write(_midiInputMode);
-    writer.write(_midiPgmChange);
     _midiInputSource.write(writer);
+    writer.write(_midiIntegrationMode);
+    writer.write(_midiProgramOffset);
     writer.write(_cvGateInput);
     writer.write(_curveCvInput);
 
@@ -131,6 +135,8 @@ void Project::write(VersionedSerializedWriter &writer) const {
 
     writer.write(_selectedTrackIndex);
     writer.write(_selectedPatternIndex);
+    writer.write(_resetCvOnStop);
+    writer.write(_useMultiCv);
 
     writer.writeHash();
 
@@ -157,8 +163,11 @@ bool Project::read(VersionedSerializedReader &reader) {
         _midiInputSource.read(reader);
     }
     if (reader.dataVersion() >= ProjectVersion::Version32) {
-        reader.read(_midiPgmChange);
+        reader.skip<bool>(ProjectVersion::Version32, ProjectVersion::Version38);
+        reader.read(_midiIntegrationMode);
+        reader.read(_midiProgramOffset);
     }
+
     reader.read(_cvGateInput, ProjectVersion::Version6);
     reader.read(_curveCvInput, ProjectVersion::Version11);
 
@@ -179,6 +188,8 @@ bool Project::read(VersionedSerializedReader &reader) {
 
     reader.read(_selectedTrackIndex);
     reader.read(_selectedPatternIndex);
+    reader.read(_resetCvOnStop, ProjectVersion::Version38);
+    reader.read(_useMultiCv, ProjectVersion::Version39);
 
     bool success = reader.checkHash();
     if (success) {

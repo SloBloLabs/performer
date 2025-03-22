@@ -56,6 +56,14 @@ public:
         _editScale = !_editScale;
     }
 
+    void initScale() {
+        _selectedScale = 0;
+    }
+
+    void resetScale() {
+        _selectedScale = _project.scale();
+    }
+
 private:
     enum Item {
         Name,
@@ -68,9 +76,14 @@ private:
         MonitorMode,
         RecordMode,
         MidiInput,
-        MidiPgmChange,
+        MidiIntegrationMode,
+        MidiProgramOffset,
         CvGateInput,
-        CurveCvInput,
+        StepsToStop,
+        RecordDelay,
+        ResetCvOnStop,
+        MultiCvRec,
+        //CurveCvInput,
         Last
     };
 
@@ -86,9 +99,14 @@ private:
         case MonitorMode:       return "Monitor Mode";
         case RecordMode:        return "Record Mode";
         case MidiInput:         return "MIDI Input";
-        case MidiPgmChange:     return "MIDI Pgm Chng";
+        case MidiIntegrationMode:   return "MIDI Integr.";
+        case MidiProgramOffset:     return "MIDI Pgm Off.";
         case CvGateInput:       return "CV/Gate Input";
-        case CurveCvInput:      return "Curve CV Input";
+        case StepsToStop:       return "Steps to stop";
+        case RecordDelay:       return "Record Delay";
+        case ResetCvOnStop:     return "Reset CV";
+        case MultiCvRec:        return "Multi CV rec";
+        //case CurveCvInput:      return "Curve CV Input";
         case Last:              break;
         }
         return nullptr;
@@ -132,15 +150,30 @@ private:
         case MidiInput:
             _project.printMidiInput(str);
             break;
-        case MidiPgmChange:
-            _project.printMidiPgmChange(str);
+        case MidiIntegrationMode:
+            _project.printMidiIntegrationMode(str);
+            break;
+        case MidiProgramOffset:
+            _project.printMidiProgramOffset(str);
             break;
         case CvGateInput:
             _project.printCvGateInput(str);
             break;
-        case CurveCvInput:
-            _project.printCurveCvInput(str);
+        case StepsToStop:
+            _project.printStepsToStop(str);
             break;
+        case RecordDelay:
+            _project.printRecordDelay(str);
+            break;
+        case ResetCvOnStop:
+            _project.printResetCvOnStop(str);
+            break;
+        case MultiCvRec:
+            _project.printUseMultiCvRec(str);
+            break;
+        //case CurveCvInput:
+        //    _project.printCurveCvInput(str);
+        //    break;
         case Last:
             break;
         }
@@ -177,18 +210,34 @@ private:
         case MidiInput:
             _project.editMidiInput(value, shift);
             break;
-        case MidiPgmChange:
-            _project.editMidiPgmChange(value, shift);
+       case MidiIntegrationMode:
+            _project.editMidiIntegrationMode(value, shift);
+            break;
+        case MidiProgramOffset:
+            _project.editMidiProgramOffset(value, shift);
             break;
         case CvGateInput:
             _project.editCvGateInput(value, shift);
             break;
-        case CurveCvInput:
-            _project.editCurveCvInput(value, shift);
+        case StepsToStop: 
+            _project.editStepsToStop(value);
             break;
+        case RecordDelay:
+            _project.editRecordDelay(value);
+            break;
+        case ResetCvOnStop:
+            _project.editResetCvOnStop(value);
+            break;
+        case MultiCvRec:
+            _project.editUseMultiCvRec(value);
+            break;
+        //case CurveCvInput:
+        //    _project.editCurveCvInput(value, shift);
+        //    break;
         case Last:
             break;
         }
+    
     }
 
     virtual void setSelectedScale(int defaultScale, bool force = false) override {};
